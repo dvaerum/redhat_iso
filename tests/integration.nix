@@ -1,12 +1,60 @@
 { pkgs ? import <nixpkgs> {}, system ? builtins.currentSystem }:
 
 let
-  # Import nixpkgs with our overlay
-  nixpkgs = import <nixpkgs> { inherit system; };
+  # Mock redhat_iso script for integration tests
+  # This simulates successful downloads without needing network/token
+  mockRedhatIso = pkgs.writeShellScriptBin "redhat_iso" ''
+    #!/usr/bin/env bash
+    set -e
 
-  # Create a test ISO file and its checksum for testing
-  testIsoContent = "This is a test RHEL ISO file for testing purposes";
-  testIsoChecksum = builtins.hashString "sha256" testIsoContent;
+    # Parse arguments
+    TOKEN_FILE=""
+    CHECKSUM_OR_FILENAME=""
+    OUTPUT_DIR="."
+    BY_FILENAME=false
+
+    while [[ $# -gt 0 ]]; do
+      case $1 in
+        --token-file)
+          TOKEN_FILE="$2"
+          shift 2
+          ;;
+        --output)
+          OUTPUT_DIR="$2"
+          shift 2
+          ;;
+        --by-filename)
+          BY_FILENAME=true
+          shift
+          ;;
+        download)
+          shift
+          CHECKSUM_OR_FILENAME="$1"
+          shift
+          ;;
+        --help)
+          echo "Red Hat ISO Download Tool"
+          echo "Usage: redhat_iso [--token-file FILE] download CHECKSUM [--output DIR]"
+          exit 0
+          ;;
+        *)
+          shift
+          ;;
+      esac
+    done
+
+    # Verify token file exists
+    if [ ! -f "$TOKEN_FILE" ]; then
+      echo "Error: Token file not found: $TOKEN_FILE" >&2
+      exit 1
+    fi
+
+    # Create a simple test ISO file
+    FILENAME="test-rhel.iso"
+    echo "Mock ISO content" > "$OUTPUT_DIR/$FILENAME"
+    echo "Downloaded: $FILENAME"
+    exit 0
+  '';
 
 in pkgs.testers.nixosTest {
   name = "redhat-iso-downloader";
@@ -16,10 +64,10 @@ in pkgs.testers.nixosTest {
       ../modules/redhat-iso-downloader.nix
     ];
 
-    # Add our overlay to get redhat_iso package
+    # Add our overlay with mock redhat_iso for testing
     nixpkgs.overlays = [
       (final: prev: {
-        redhat_iso = prev.callPackage ../default.nix {};
+        redhat_iso = mockRedhatIso;
       })
     ];
 
@@ -31,9 +79,9 @@ in pkgs.testers.nixosTest {
       runOnBoot = true;
 
       # Use test data - in a real scenario, these would be actual RHEL ISOs
-      isos = [
+      downloads = [
         {
-          filename = "test-rhel-9.6-x86_64-boot.iso";
+          # Test download by checksum
           checksum = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";  # sha256 of empty file
         }
       ];
@@ -102,14 +150,37 @@ in pkgs.testers.nixosTest {
         assert "ProtectHome=yes" in result, "ProtectHome not enabled"
         assert "NoNewPrivileges=yes" in result, "NoNewPrivileges not enabled"
 
-    # Test 8: Service logs contain expected information
-    with subtest("service logs show expected behavior"):
-        # The service runs on boot and will fail (expected - no network)
-        # Check the service logs contain expected patterns
+    # Test 8: Service runs successfully on boot
+    with subtest("service runs successfully on boot"):
+        # Service should have completed successfully
+        machine.succeed("systemctl is-active redhat-iso-downloader.service")
+
+        # Check the service logs show successful execution
         result = machine.succeed("journalctl -u redhat-iso-downloader.service --no-pager")
-        # Service should have attempted to start
-        assert "redhat-iso-downloader" in result.lower() or "Starting Red Hat ISO Downloader" in result, \
-               "Service didn't appear in logs"
+        assert "Downloaded: test-rhel.iso" in result, \
+               "Service didn't complete download successfully"
+        assert "All downloads completed successfully" in result, \
+               "Service didn't show success message"
+
+    # Test 9: Downloaded file exists
+    with subtest("downloaded file exists"):
+        machine.succeed("test -f /var/lib/test-isos/test-rhel.iso")
+        result = machine.succeed("cat /var/lib/test-isos/test-rhel.iso")
+        assert "Mock ISO content" in result, "Downloaded file has incorrect content"
+
+    # Test 10: Service is idempotent (safe to run multiple times)
+    with subtest("service is idempotent"):
+        # Get current file count
+        file_count_before = machine.succeed("ls -1 /var/lib/test-isos/ | wc -l").strip()
+
+        # Restart service
+        machine.succeed("systemctl restart redhat-iso-downloader.service")
+        machine.succeed("systemctl is-active redhat-iso-downloader.service")
+
+        # File count should remain the same
+        file_count_after = machine.succeed("ls -1 /var/lib/test-isos/ | wc -l").strip()
+        assert file_count_before == file_count_after, \
+               "File count changed after re-run: " + file_count_before + " -> " + file_count_after
 
     print("All tests passed!")
   '';

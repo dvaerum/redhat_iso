@@ -5,58 +5,59 @@ with lib;
 let
   cfg = config.services.redhat-iso-downloader;
 
-  # Combine filenames and checksums into a list of sets
-  # This handles both the separate lists approach and the unified approach
-  isoList = if (cfg.filenames != [] && cfg.checksums != []) then
-    # Separate lists mode: zip them together
-    lib.zipListsWith (filename: checksum: { inherit filename checksum; })
-      cfg.filenames
-      cfg.checksums
-  else
-    # Unified list mode
-    cfg.isos;
+  # Create a download script for a single ISO download
+  # Handles three modes:
+  # 1. Only checksum: download by checksum (immutable)
+  # 2. Only filename: download by filename (may change over time!)
+  # 3. Both: download by checksum and verify filename matches
+  downloadIsoScript = download:
+    let
+      hasChecksum = download.checksum != null;
+      hasFilename = download.filename != null;
 
-  # Create a download script for a single ISO
-  downloadIsoScript = iso: ''
-    ISO_FILE="${cfg.outputDir}/${iso.filename}"
-    CHECKSUM="${iso.checksum}"
+      # Determine download mode
+      downloadByChecksum = hasChecksum;
+      downloadByFilename = !hasChecksum && hasFilename;
+      verifyFilename = hasChecksum && hasFilename;
 
-    # Check if file already exists and has correct checksum
-    if [ -f "$ISO_FILE" ]; then
-      echo "File $ISO_FILE exists, verifying checksum..."
-      ACTUAL_CHECKSUM=$(${pkgs.coreutils}/bin/sha256sum "$ISO_FILE" | ${pkgs.coreutils}/bin/awk '{print $1}')
-
-      if [ "$ACTUAL_CHECKSUM" = "$CHECKSUM" ]; then
-        echo "✓ $ISO_FILE already exists with correct checksum"
-        exit 0
+      # Build the appropriate redhat_iso command
+      downloadCmd = if downloadByChecksum then
+        # Download by checksum (recommended)
+        "${pkgs.redhat_iso}/bin/redhat_iso --token-file ${cfg.tokenFile} download ${download.checksum} --output ${cfg.outputDir}"
       else
-        echo "✗ $ISO_FILE exists but checksum mismatch!"
-        echo "  Expected: $CHECKSUM"
-        echo "  Got:      $ACTUAL_CHECKSUM"
-        if [ "${toString cfg.removeCorrupted}" = "1" ]; then
-          echo "  Removing corrupted file and re-downloading..."
-          rm "$ISO_FILE"
-        else
-          echo "  Skipping download (removeCorrupted is false)"
-          exit 1
-        fi
+        # Download by filename (--by-filename flag)
+        "${pkgs.redhat_iso}/bin/redhat_iso --token-file ${cfg.tokenFile} download ${download.filename} --by-filename --output ${cfg.outputDir}";
+
+      identifier = if hasChecksum then download.checksum else download.filename;
+    in ''
+      echo "----------------------------------------"
+      ${if downloadByChecksum then ''
+        echo "Downloading ISO by checksum: ${download.checksum}"
+      '' else ''
+        echo "Downloading ISO by filename: ${download.filename}"
+        echo "⚠️  Note: Filename-based downloads may have different checksums if Red Hat updates the file"
+      ''}
+
+      # Run the download command
+      if ${downloadCmd}; then
+        echo "✓ Successfully downloaded: ${identifier}"
+
+        ${if verifyFilename then ''
+          # Verify the filename matches expected
+          if [ -f "${cfg.outputDir}/${download.filename}" ]; then
+            echo "✓ Filename verification passed: ${download.filename}"
+          else
+            echo "⚠️  Warning: Downloaded file has different filename than expected (${download.filename})"
+            echo "    This may happen if Red Hat renamed the file"
+            ls -lh ${cfg.outputDir}/
+          fi
+        '' else ""}
+      else
+        echo "✗ Failed to download: ${identifier}"
+        exit 1
       fi
-    fi
-
-    # Download the ISO
-    echo "Downloading ${iso.filename}..."
-    ${pkgs.redhat_iso}/bin/redhat_iso \
-      --token-file ${cfg.tokenFile} \
-      download ${iso.checksum} \
-      --output ${cfg.outputDir}
-
-    if [ $? -eq 0 ]; then
-      echo "✓ Successfully downloaded and verified ${iso.filename}"
-    else
-      echo "✗ Failed to download ${iso.filename}"
-      exit 1
-    fi
-  '';
+      echo ""
+    '';
 
   # Master script that downloads all ISOs
   downloadAllScript = pkgs.writeShellScript "download-redhat-isos" ''
@@ -71,19 +72,18 @@ let
       exit 1
     fi
 
-    echo "Starting Red Hat ISO downloads..."
+    echo "========================================="
+    echo "Red Hat ISO Downloader"
+    echo "========================================="
     echo "Output directory: ${cfg.outputDir}"
-    echo "ISOs to download: ${toString (length isoList)}"
+    echo "Downloads to process: ${toString (length cfg.downloads)}"
     echo ""
 
-    ${concatMapStringsSep "\n" (iso: ''
-      echo "----------------------------------------"
-      ${downloadIsoScript iso}
-      echo ""
-    '') isoList}
+    ${concatMapStringsSep "\n" downloadIsoScript cfg.downloads}
 
     echo "========================================="
-    echo "All downloads completed!"
+    echo "All downloads completed successfully!"
+    echo "========================================="
   '';
 
 in {
@@ -114,76 +114,67 @@ in {
       '';
     };
 
-    filenames = mkOption {
-      type = types.listOf types.str;
-      default = [];
-      example = [ "rhel-9.6-x86_64-boot.iso" "rhel-9.6-x86_64-dvd.iso" ];
-      description = ''
-        List of ISO filenames to download (optional, use with checksums).
-
-        If both filenames and checksums are provided, they will be paired by index.
-        Otherwise, use the 'isos' option for a more robust configuration.
-      '';
-    };
-
-    checksums = mkOption {
-      type = types.listOf types.str;
-      default = [];
-      example = [
-        "36a06d4c36605550c2626d5af9ee84fc2badce9e71010b7e94a9a469a0335d63"
-        "febcc1359fd68faceff82d7eed8d21016e022a17e9c74e0e3f9dc3a78816b2bb"
-      ];
-      description = ''
-        List of SHA-256 checksums corresponding to filenames (optional).
-
-        Must have the same length as filenames if both are used.
-        Each checksum corresponds to the filename at the same index.
-      '';
-    };
-
-    isos = mkOption {
+    downloads = mkOption {
       type = types.listOf (types.submodule {
         options = {
-          filename = mkOption {
-            type = types.str;
-            example = "rhel-9.6-x86_64-boot.iso";
-            description = "ISO filename";
-          };
           checksum = mkOption {
-            type = types.str;
+            type = types.nullOr types.str;
+            default = null;
             example = "36a06d4c36605550c2626d5af9ee84fc2badce9e71010b7e94a9a469a0335d63";
-            description = "SHA-256 checksum of the ISO";
+            description = ''
+              SHA-256 checksum of the ISO to download.
+
+              Download by checksum is the recommended approach as checksums
+              are immutable identifiers.
+
+              At least one of 'checksum' or 'filename' must be provided.
+            '';
+          };
+          filename = mkOption {
+            type = types.nullOr types.str;
+            default = null;
+            example = "rhel-9.6-x86_64-boot.iso";
+            description = ''
+              Filename of the ISO to download.
+
+              WARNING: Downloading by filename may result in different checksums
+              over time if Red Hat updates the file. For immutable downloads,
+              use checksum instead.
+
+              At least one of 'checksum' or 'filename' must be provided.
+            '';
           };
         };
       });
       default = [];
       example = literalExpression ''
         [
+          # Download by checksum (recommended - immutable)
           {
-            filename = "rhel-9.6-x86_64-boot.iso";
             checksum = "36a06d4c36605550c2626d5af9ee84fc2badce9e71010b7e94a9a469a0335d63";
           }
+
+          # Download by filename (may change over time)
           {
-            filename = "rhel-9.6-x86_64-dvd.iso";
+            filename = "rhel-9.6-x86_64-boot.iso";
+          }
+
+          # Download by checksum and verify filename matches
+          {
             checksum = "febcc1359fd68faceff82d7eed8d21016e022a17e9c74e0e3f9dc3a78816b2bb";
+            filename = "rhel-9.6-x86_64-dvd.iso";
           }
         ]
       '';
       description = ''
-        List of ISOs to download with their checksums.
+        List of ISOs to download.
 
-        This is the recommended way to configure ISOs as it keeps
-        filenames and checksums together, reducing configuration errors.
-      '';
-    };
+        Each download can specify:
+        - Only checksum: Downloads by SHA-256 checksum (immutable)
+        - Only filename: Downloads by filename (may change over time)
+        - Both: Downloads by checksum and verifies filename matches
 
-    removeCorrupted = mkOption {
-      type = types.bool;
-      default = true;
-      description = ''
-        Whether to automatically remove and re-download files with mismatched checksums.
-
-        If false, the service will fail when encountering a corrupted file.
+        The checksum-based approach is recommended for reproducibility.
       '';
     };
 
@@ -200,32 +191,39 @@ in {
   };
 
   config = mkIf cfg.enable {
-    # Validation: ensure we have ISOs to download
+    # Validation: ensure downloads are properly configured
     assertions = [
       {
-        assertion = (length isoList) > 0;
+        assertion = (length cfg.downloads) > 0;
         message = ''
-          services.redhat-iso-downloader: No ISOs configured!
+          services.redhat-iso-downloader: No downloads configured!
 
-          Either provide:
-            - Both 'filenames' and 'checksums' lists (must have same length)
-            - Or the 'isos' list
+          Please provide at least one download in the 'downloads' option.
+
+          Example:
+            services.redhat-iso-downloader.downloads = [
+              { checksum = "36a06d4c..."; }
+            ];
         '';
       }
-      {
-        assertion = (cfg.filenames == [] && cfg.checksums == []) ||
-                    (length cfg.filenames == length cfg.checksums);
+    ] ++ (map (download:
+      let
+        hasChecksum = download.checksum != null;
+        hasFilename = download.filename != null;
+        idx = elemAt (splitString "\n" (concatMapStringsSep "\n" (d: "${d.checksum or "null"}-${d.filename or "null"}") cfg.downloads)) 0;
+      in {
+        assertion = hasChecksum || hasFilename;
         message = ''
-          services.redhat-iso-downloader: filenames and checksums must have the same length!
+          services.redhat-iso-downloader: Invalid download configuration!
 
-          Got ${toString (length cfg.filenames)} filenames and ${toString (length cfg.checksums)} checksums.
+          Each download must specify at least one of:
+            - checksum: SHA-256 hash (recommended)
+            - filename: ISO filename (may change over time)
 
-          Either:
-            - Provide equal-length lists for both
-            - Or use the 'isos' option instead
+          Found entry with neither checksum nor filename.
         '';
       }
-    ];
+    ) cfg.downloads);
 
     # Add redhat_iso to system packages
     environment.systemPackages = [ pkgs.redhat_iso ];

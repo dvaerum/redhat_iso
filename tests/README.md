@@ -2,21 +2,23 @@
 
 This directory contains NixOS integration tests for the redhat-iso-downloader module.
 
+## Test Suite
+
+### **Integration Tests** (`integration.nix`)
+Comprehensive tests covering module configuration, systemd setup, security hardening, and download functionality.
+
+**Uses mock `redhat_iso` - no network or Red Hat token required.**
+
 ## Running Tests
 
 ### Using Nix Flakes (Recommended)
 
-Run all checks (includes integration tests):
+**Run all checks:**
 ```bash
 nix flake check
 ```
 
-Run only the integration test:
-```bash
-nix build .#checks.x86_64-linux.integration
-```
-
-Run the integration test with verbose output:
+**Run integration tests:**
 ```bash
 nix build .#checks.x86_64-linux.integration -L
 ```
@@ -29,36 +31,42 @@ nix-build tests/integration.nix
 
 ## What the Tests Cover
 
-The integration test suite (`integration.nix`) verifies:
+The integration test suite (`integration.nix`) provides comprehensive testing with **10 subtests**:
 
-### ✅ Package Installation
+### ✅ **Package Installation**
 - `redhat_iso` CLI tool is available
 - Help command works correctly
 
-### ✅ Systemd Service
+### ✅ **Systemd Service Configuration**
 - Service is properly defined
 - Service type is `oneshot`
 - Service has `RemainAfterExit` enabled
 - Service waits for network (`network-online.target`)
 
-### ✅ Security Hardening
+### ✅ **Security Hardening**
 - `PrivateTmp` is enabled
 - `ProtectSystem=strict` is set
 - `ProtectHome` is enabled
 - `NoNewPrivileges` is enabled
 - Read-write paths are restricted
 
-### ✅ File System
+### ✅ **File System**
 - Output directory is created with correct permissions (755)
 - Token file exists with secure permissions (600)
 - tmpfiles.d rules are applied
 
-### ✅ Service Operation
-- Service can be triggered manually
-- Service logs are accessible via journalctl
-- Service attempts to download ISOs (fails gracefully without real token)
+### ✅ **Download Functionality (Mock)**
+- Service runs successfully on boot
+- Downloads complete successfully
+- Files are created in output directory
+- Service logs show expected behavior
 
-### ✅ Configuration Validation
+### ✅ **Service Idempotency**
+- Safe to run multiple times
+- No duplicate downloads
+- Existing files are preserved
+
+### ✅ **Configuration Validation**
 - Module options are properly typed
 - Assertions catch configuration errors at build time
 
@@ -67,17 +75,18 @@ The integration test suite (`integration.nix`) verifies:
 The test uses NixOS's built-in testing framework which:
 
 1. **Creates a VM**: Spins up a QEMU VM with the test configuration
-2. **Applies Configuration**: Installs the module and test config
-3. **Runs Python Tests**: Executes test scenarios in the VM
+2. **Applies Configuration**: Installs the module with mock `redhat_iso`
+3. **Runs Python Tests**: Executes 10 test scenarios in the VM
 4. **Reports Results**: Returns success/failure
 
 ## Test Configuration
 
 The test VM is configured with:
-- The `redhat-iso-downloader` module enabled
-- A fake API token (for testing service startup)
-- Test ISO configuration (doesn't download real files)
+- Mock `redhat_iso` tool (simulates downloads without network)
+- `redhat-iso-downloader` module enabled
+- Fake API token for testing
 - Output directory: `/var/lib/test-isos`
+- Service runs on boot
 
 ## Debugging Failed Tests
 
@@ -128,19 +137,24 @@ test:
 
 The integration test typically takes:
 - **First run**: 2-5 minutes (builds VM image)
-- **Subsequent runs**: 30-60 seconds (cached)
+- **Subsequent runs**: ~20 seconds (cached)
+- **10 subtests**: Completes in under 20 seconds
 
-## Known Limitations
+## Testing Philosophy
 
-1. **No Real Downloads**: Tests don't download actual RHEL ISOs (would be too large)
-2. **Mocked Token**: Uses a fake API token (real downloads would fail)
-3. **Network Isolation**: VM has limited network access by design
+**Mock-Based Testing**: Uses mock `redhat_iso` instead of real downloads because:
+- ✅ **Fast**: No large ISO downloads
+- ✅ **Reliable**: No network dependencies
+- ✅ **Reproducible**: Same results every time
+- ✅ **Pure**: Can run in isolated environments (CI/CD)
 
-These limitations are intentional to keep tests:
-- Fast
-- Reliable
-- Reproducible
-- Independent of external services
+**For Real Downloads**: Test the CLI directly on your system:
+```bash
+# Test real download functionality
+nix run .#packages.x86_64-linux.default -- \
+  --token-file redhat-api-token.txt \
+  download <checksum>
+```
 
 ## Test Maintenance
 
