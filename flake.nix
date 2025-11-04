@@ -7,6 +7,15 @@
   };
 
   outputs = { self, nixpkgs, flake-utils }:
+    {
+      # Overlay for NixOS configurations
+      # Usage in configuration.nix:
+      #   nixpkgs.overlays = [ inputs.redhat_iso.overlays.default ];
+      #   environment.systemPackages = [ pkgs.redhat_iso ];
+      overlays.default = final: prev: {
+        redhat_iso = prev.callPackage ./default.nix {};
+      };
+    } //
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
