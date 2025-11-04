@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Example: Using rhiso as a Python library
+Example: Using redhat_iso as a Python library
 """
 
-from rhiso import RedHatAPI
+from redhat_iso import RedHatAPI
 
 # Initialize API with your offline token
 # In practice, you'd load this from a file or environment variable

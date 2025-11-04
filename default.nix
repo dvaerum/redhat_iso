@@ -3,7 +3,7 @@
 }:
 
 python3.pkgs.buildPythonApplication {
-  pname = "rhiso";
+  pname = "redhat_iso";
   version = "1.0.0";
 
   pyproject = true;

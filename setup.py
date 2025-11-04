@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='rhiso',
+    name='redhat_iso',
     version='1.0.0',
     description='Red Hat ISO Download Tool - List and download Red Hat ISO files',
     long_description=open('README.md').read(),
@@ -13,7 +13,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'rhiso=rhiso.cli:main',
+            'redhat_iso=redhat_iso.cli:main',
         ],
     },
     python_requires='>=3.7',

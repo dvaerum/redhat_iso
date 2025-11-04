@@ -14,11 +14,11 @@
 ```bash
 nix-build shell.nix
 ```
-**Result:** Built successfully to `/nix/store/.../rhiso-1.0.0`
+**Result:** Built successfully to `/nix/store/.../redhat_iso-1.0.0`
 
 ### 2. List RHEL 9.6 x86_64 Images ✅
 ```bash
-./result/bin/rhiso list --version 9.6 --arch x86_64
+./result/bin/redhat_iso list --version 9.6 --arch x86_64
 ```
 **Result:** Successfully retrieved 6 images:
 - Red Hat Enterprise Linux 9.6 Boot ISO (36a06d4c...)
@@ -36,7 +36,7 @@ Each entry includes:
 
 ### 3. List RHEL 8.10 x86_64 Images ✅
 ```bash
-./result/bin/rhiso list --version 8.10 --arch x86_64
+./result/bin/redhat_iso list --version 8.10 --arch x86_64
 ```
 **Result:** Successfully retrieved multiple images:
 - RHEL 8.10 Boot ISO (6ced3686...)
@@ -47,7 +47,7 @@ Each entry includes:
 
 ### 4. List by Content Set ✅
 ```bash
-./result/bin/rhiso list --content-set rhel-9-for-x86_64-baseos-isos
+./result/bin/redhat_iso list --content-set rhel-9-for-x86_64-baseos-isos
 ```
 **Result:** Successfully retrieved multiple RHEL 9.x images from the content set, including:
 - rhel-9.0-x86_64-boot.iso
@@ -58,9 +58,9 @@ Each entry includes:
 
 ### 5. Help System ✅
 ```bash
-./result/bin/rhiso --help
-./result/bin/rhiso list --help
-./result/bin/rhiso download --help
+./result/bin/redhat_iso --help
+./result/bin/redhat_iso list --help
+./result/bin/redhat_iso download --help
 ```
 **Result:** All help commands working correctly with clear documentation
 
@@ -106,13 +106,13 @@ The download functionality is fully implemented with:
 nix-build shell.nix
 
 # List available RHEL 9.6 ISOs
-./result/bin/rhiso list --version 9.6 --arch x86_64
+./result/bin/redhat_iso list --version 9.6 --arch x86_64
 
 # Download the Binary DVD (example checksum)
-./result/bin/rhiso download febcc1359fd68faceff82d7eed8d21016e022a17e9c74e0e3f9dc3a78816b2bb
+./result/bin/redhat_iso download febcc1359fd68faceff82d7eed8d21016e022a17e9c74e0e3f9dc3a78816b2bb
 
 # Download to specific directory
-./result/bin/rhiso download <checksum> --output ~/downloads
+./result/bin/redhat_iso download <checksum> --output ~/downloads
 ```
 
 ---

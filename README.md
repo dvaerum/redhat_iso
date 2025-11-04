@@ -17,9 +17,9 @@ A command-line tool to download Red Hat ISO files using the Red Hat Customer Por
 # Build the package
 nix-build shell.nix
 
-# The executable will be available at ./result/bin/rhiso
-./result/bin/rhiso --help
-./result/bin/rhiso list --version 9.6 --arch x86_64
+# The executable will be available at ./result/bin/redhat_iso
+./result/bin/redhat_iso --help
+./result/bin/redhat_iso list --version 9.6 --arch x86_64
 ```
 
 **Using nix run (with flakes):**
@@ -38,7 +38,7 @@ nix-shell shell.nix
 **Using nix build (with flakes):**
 ```bash
 nix build
-./result/bin/rhiso --help
+./result/bin/redhat_iso --help
 ```
 
 ### Option 2: Python pip
@@ -52,7 +52,7 @@ pip install -r requirements.txt
 
 3. Make the script executable:
 ```bash
-chmod +x rhiso.py
+chmod +x redhat_iso.py
 ```
 
 ### Setup
@@ -76,31 +76,31 @@ The tool can list available ISO files directly from the Red Hat API:
 **List currently supported RHEL releases (default):**
 ```bash
 # Automatically discovers and shows latest RHEL versions for x86_64
-rhiso list
+redhat_iso list
 
 # Or with nix run:
 nix run . -- list
 
 # JSON output for programmatic use:
-rhiso --json list
+redhat_iso --json list
 ```
 
 **List RHEL images by version and architecture:**
 ```bash
-rhiso list --version 9.6 --arch x86_64
-rhiso list --version 8.10 --arch aarch64
+redhat_iso list --version 9.6 --arch x86_64
+redhat_iso list --version 8.10 --arch aarch64
 
 # JSON output:
-rhiso --json list --version 9.6 --arch x86_64
+redhat_iso --json list --version 9.6 --arch x86_64
 
 # Or with direct script:
-./rhiso.py list --version 9.6 --arch x86_64
+./redhat_iso.py list --version 9.6 --arch x86_64
 ```
 
 **List images from a content set:**
 ```bash
-rhiso list --content-set rhel-9-for-x86_64-baseos-isos
-rhiso list --content-set rhel-8-for-aarch64-baseos-isos
+redhat_iso list --content-set rhel-9-for-x86_64-baseos-isos
+redhat_iso list --content-set rhel-8-for-aarch64-baseos-isos
 ```
 
 The list command will display available ISOs with their:
@@ -116,25 +116,25 @@ The list command will display available ISOs with their:
 
 **Download by checksum:**
 ```bash
-rhiso download <SHA256_CHECKSUM>
+redhat_iso download <SHA256_CHECKSUM>
 
 # Example with real checksum from RHEL 9.6:
-rhiso download febcc1359fd68faceff82d7eed8d21016e022a17e9c74e0e3f9dc3a78816b2bb
+redhat_iso download febcc1359fd68faceff82d7eed8d21016e022a17e9c74e0e3f9dc3a78816b2bb
 ```
 
 **Download by filename (searches automatically):**
 ```bash
 # The tool will search across RHEL versions and download the latest match
-rhiso download rhel-9.6-x86_64-dvd.iso --by-filename
-rhiso download rhel-8.10-x86_64-boot.iso --by-filename
+redhat_iso download rhel-9.6-x86_64-dvd.iso --by-filename
+redhat_iso download rhel-8.10-x86_64-boot.iso --by-filename
 
 # If multiple versions exist with same filename, downloads the most recent
 ```
 
 Download to a specific directory:
 ```bash
-rhiso download <SHA256_CHECKSUM> --output /path/to/downloads
-rhiso download rhel-9.6-x86_64-dvd.iso --by-filename --output ~/Downloads
+redhat_iso download <SHA256_CHECKSUM> --output /path/to/downloads
+redhat_iso download rhel-9.6-x86_64-dvd.iso --by-filename --output ~/Downloads
 ```
 
 ### Custom Token File
@@ -142,7 +142,7 @@ rhiso download rhel-9.6-x86_64-dvd.iso --by-filename --output ~/Downloads
 If your token is stored in a different file:
 
 ```bash
-rhiso --token-file /path/to/token.txt download <CHECKSUM>
+redhat_iso --token-file /path/to/token.txt download <CHECKSUM>
 ```
 
 ## How It Works
@@ -159,14 +159,14 @@ rhiso --token-file /path/to/token.txt download <CHECKSUM>
 
 ```bash
 # 1. List available RHEL 9.6 x86_64 ISOs
-rhiso list --version 9.6 --arch x86_64
+redhat_iso list --version 9.6 --arch x86_64
 
 # 2. Copy the checksum from the output (e.g., the Binary DVD)
 # 3. Download the ISO using the checksum
-rhiso download febcc1359fd68faceff82d7eed8d21016e022a17e9c74e0e3f9dc3a78816b2bb
+redhat_iso download febcc1359fd68faceff82d7eed8d21016e022a17e9c74e0e3f9dc3a78816b2bb
 
 # Alternative: Download to specific directory
-rhiso download febcc1359fd68faceff82d7eed8d21016e022a17e9c74e0e3f9dc3a78816b2bb --output ~/downloads
+redhat_iso download febcc1359fd68faceff82d7eed8d21016e022a17e9c74e0e3f9dc3a78816b2bb --output ~/downloads
 ```
 
 ## Troubleshooting

@@ -14,13 +14,13 @@ nix run . -- download febcc1359fd68faceff82d7eed8d21016e022a17e9c74e0e3f9dc3a788
 ```bash
 # Build once, use many times
 nix-build shell.nix
-./result/bin/rhiso list --version 9.6 --arch x86_64
+./result/bin/redhat_iso list --version 9.6 --arch x86_64
 ```
 
 ### 3. Using Direct Python Script
 ```bash
 pip install -r requirements.txt
-./rhiso.py list --version 9.6 --arch x86_64
+./redhat_iso.py list --version 9.6 --arch x86_64
 ```
 
 ---
@@ -31,7 +31,7 @@ pip install -r requirements.txt
 
 ```bash
 # Automatically discovers and shows latest RHEL ISOs for x86_64
-rhiso list
+redhat_iso list
 
 # Or with nix run
 nix run . -- list
@@ -43,29 +43,29 @@ This automatically discovers and displays ISO files for the latest RHEL versions
 
 ```bash
 # RHEL 9.6 for x86_64
-rhiso list --version 9.6 --arch x86_64
+redhat_iso list --version 9.6 --arch x86_64
 
 # RHEL 8.10 for x86_64
-rhiso list --version 8.10 --arch x86_64
+redhat_iso list --version 8.10 --arch x86_64
 
 # RHEL 9.6 for aarch64 (ARM64)
-rhiso list --version 9.6 --arch aarch64
+redhat_iso list --version 9.6 --arch aarch64
 
 # RHEL 8.9 for ppc64le (IBM Power)
-rhiso list --version 8.9 --arch ppc64le
+redhat_iso list --version 8.9 --arch ppc64le
 ```
 
 ### List Images from Content Sets
 
 ```bash
 # RHEL 9 for x86_64 base OS ISOs
-rhiso list --content-set rhel-9-for-x86_64-baseos-isos
+redhat_iso list --content-set rhel-9-for-x86_64-baseos-isos
 
 # RHEL 8 for aarch64 base OS ISOs
-rhiso list --content-set rhel-8-for-aarch64-baseos-isos
+redhat_iso list --content-set rhel-8-for-aarch64-baseos-isos
 
 # RHEL 9 for x86_64 AppStream ISOs
-rhiso list --content-set rhel-9-for-x86_64-appstream-isos
+redhat_iso list --content-set rhel-9-for-x86_64-appstream-isos
 ```
 
 ### Download ISOs
@@ -73,39 +73,39 @@ rhiso list --content-set rhel-9-for-x86_64-appstream-isos
 **By Checksum:**
 ```bash
 # Download RHEL 9.6 Binary DVD
-rhiso download febcc1359fd68faceff82d7eed8d21016e022a17e9c74e0e3f9dc3a78816b2bb
+redhat_iso download febcc1359fd68faceff82d7eed8d21016e022a17e9c74e0e3f9dc3a78816b2bb
 
 # Download to specific directory
-rhiso download 36a06d4c36605550c2626d5af9ee84fc2badce9e71010b7e94a9a469a0335d63 \
+redhat_iso download 36a06d4c36605550c2626d5af9ee84fc2badce9e71010b7e94a9a469a0335d63 \
   --output ~/iso-downloads
 
 # Download RHEL 8.10 Binary DVD to /tmp
-rhiso download 9b3c8e31bc2cdd2de9cf96abb3726347f5840ff3b176270647b3e66639af291b \
+redhat_iso download 9b3c8e31bc2cdd2de9cf96abb3726347f5840ff3b176270647b3e66639af291b \
   --output /tmp
 ```
 
 **By Filename (Automatic Search):**
 ```bash
 # Download by filename - tool searches for latest version
-rhiso download rhel-9.6-x86_64-dvd.iso --by-filename
+redhat_iso download rhel-9.6-x86_64-dvd.iso --by-filename
 
 # Download Boot ISO by filename
-rhiso download rhel-9.6-x86_64-boot.iso --by-filename
+redhat_iso download rhel-9.6-x86_64-boot.iso --by-filename
 
 # Download to specific directory
-rhiso download rhel-8.10-x86_64-dvd.iso --by-filename --output ~/Downloads
+redhat_iso download rhel-8.10-x86_64-dvd.iso --by-filename --output ~/Downloads
 
 # If multiple versions have the same filename, downloads the most recent
-rhiso download rhel-baseos-9-latest-x86_64.iso --by-filename
+redhat_iso download rhel-baseos-9-latest-x86_64.iso --by-filename
 ```
 
 ### Using Custom Token File
 
 ```bash
 # Specify alternative token file location
-rhiso --token-file ~/.config/redhat-token.txt list --version 9.6 --arch x86_64
+redhat_iso --token-file ~/.config/redhat-token.txt list --version 9.6 --arch x86_64
 
-rhiso --token-file /path/to/token.txt download <checksum>
+redhat_iso --token-file /path/to/token.txt download <checksum>
 ```
 
 ---
@@ -133,17 +133,17 @@ nix run . -- download febcc1359fd68faceff82d7eed8d21016e022a17e9c74e0e3f9dc3a788
 
 ```bash
 # List RHEL 9.6 images
-./result/bin/rhiso list --version 9.6 --arch x86_64
+./result/bin/redhat_iso list --version 9.6 --arch x86_64
 
 # Download the smaller Boot ISO instead of full DVD
-./result/bin/rhiso download 36a06d4c36605550c2626d5af9ee84fc2badce9e71010b7e94a9a469a0335d63
+./result/bin/redhat_iso download 36a06d4c36605550c2626d5af9ee84fc2badce9e71010b7e94a9a469a0335d63
 ```
 
 ### Example 3: Browse Historical RHEL Versions
 
 ```bash
 # List RHEL 9.2 images (older version)
-rhiso list --content-set rhel-9-for-x86_64-baseos-isos
+redhat_iso list --content-set rhel-9-for-x86_64-baseos-isos
 
 # This will show all RHEL 9.x versions available in the content set:
 # - rhel-9.0-x86_64-dvd.iso
@@ -156,13 +156,13 @@ rhiso list --content-set rhel-9-for-x86_64-baseos-isos
 
 ```bash
 # List ARM64 (aarch64) images
-rhiso list --version 9.6 --arch aarch64
+redhat_iso list --version 9.6 --arch aarch64
 
 # List IBM Power (ppc64le) images
-rhiso list --version 9.6 --arch ppc64le
+redhat_iso list --version 9.6 --arch ppc64le
 
 # List IBM Z (s390x) images
-rhiso list --version 9.6 --arch s390x
+redhat_iso list --version 9.6 --arch s390x
 ```
 
 ---
@@ -173,16 +173,16 @@ Use these real checksums for testing:
 
 ```bash
 # RHEL 9.6 Binary DVD (x86_64) - 10.5 GB
-rhiso download febcc1359fd68faceff82d7eed8d21016e022a17e9c74e0e3f9dc3a78816b2bb
+redhat_iso download febcc1359fd68faceff82d7eed8d21016e022a17e9c74e0e3f9dc3a78816b2bb
 
 # RHEL 9.6 Boot ISO (x86_64) - 950 MB
-rhiso download 36a06d4c36605550c2626d5af9ee84fc2badce9e71010b7e94a9a469a0335d63
+redhat_iso download 36a06d4c36605550c2626d5af9ee84fc2badce9e71010b7e94a9a469a0335d63
 
 # RHEL 8.10 Binary DVD (x86_64)
-rhiso download 9b3c8e31bc2cdd2de9cf96abb3726347f5840ff3b176270647b3e66639af291b
+redhat_iso download 9b3c8e31bc2cdd2de9cf96abb3726347f5840ff3b176270647b3e66639af291b
 
 # RHEL 8.10 Boot ISO (x86_64)
-rhiso download 6ced368628750ff3ea8a2fc52a371ba368d3377b8307caafda69070849a9e4e7
+redhat_iso download 6ced368628750ff3ea8a2fc52a371ba368d3377b8307caafda69070849a9e4e7
 ```
 
 ---
@@ -209,7 +209,7 @@ experimental-features = nix-command flakes
 Or use the traditional method:
 ```bash
 nix-build shell.nix
-./result/bin/rhiso --help
+./result/bin/redhat_iso --help
 ```
 
 ### Token Expired
@@ -242,7 +242,7 @@ All list commands support JSON output for programmatic use:
 ### Default List with JSON
 
 ```bash
-rhiso --json list
+redhat_iso --json list
 ```
 
 **Output:**
@@ -270,7 +270,7 @@ rhiso --json list
 ### Specific Version with JSON
 
 ```bash
-rhiso --json list --version 9.6 --arch x86_64
+redhat_iso --json list --version 9.6 --arch x86_64
 ```
 
 **Output:**
@@ -292,23 +292,23 @@ rhiso --json list --version 9.6 --arch x86_64
 ### Content Set with JSON
 
 ```bash
-rhiso --json list --content-set rhel-9-for-x86_64-baseos-isos
+redhat_iso --json list --content-set rhel-9-for-x86_64-baseos-isos
 ```
 
 ### Using JSON Output in Scripts
 
 ```bash
 # Extract checksums for all RHEL 9.6 ISOs
-rhiso --json list --version 9.6 --arch x86_64 | jq -r '.images[].checksum'
+redhat_iso --json list --version 9.6 --arch x86_64 | jq -r '.images[].checksum'
 
 # Get just the Binary DVD checksum
-rhiso --json list --version 9.6 --arch x86_64 | \
+redhat_iso --json list --version 9.6 --arch x86_64 | \
   jq -r '.images[] | select(.filename | contains("dvd.iso")) | .checksum'
 
 # Download all ISOs automatically
-rhiso --json list --version 9.6 --arch x86_64 | \
+redhat_iso --json list --version 9.6 --arch x86_64 | \
   jq -r '.images[].checksum' | \
-  xargs -I {} rhiso download {}
+  xargs -I {} redhat_iso download {}
 ```
 
 ### Parsing JSON in Python
@@ -319,7 +319,7 @@ import json
 
 # Get list of ISOs
 result = subprocess.run(
-    ["rhiso", "--json", "list", "--version", "9.6", "--arch", "x86_64"],
+    ["redhat_iso", "--json", "list", "--version", "9.6", "--arch", "x86_64"],
     capture_output=True,
     text=True
 )
@@ -351,7 +351,7 @@ The tool can automatically search for and download ISOs by filename, selecting t
 
 **Simple filename download:**
 ```bash
-rhiso download rhel-9.6-x86_64-dvd.iso --by-filename
+redhat_iso download rhel-9.6-x86_64-dvd.iso --by-filename
 ```
 
 **Output:**
@@ -383,7 +383,7 @@ Destination: ./rhel-9.6-x86_64-dvd.iso
 #!/bin/bash
 # Always download the latest RHEL 9.6 DVD
 
-rhiso download rhel-9.6-x86_64-dvd.iso --by-filename --output /var/isos
+redhat_iso download rhel-9.6-x86_64-dvd.iso --by-filename --output /var/isos
 
 # The tool automatically finds and downloads the most recent version
 ```

@@ -19,7 +19,7 @@ The project supports both traditional Nix and modern Nix flakes, using a **DRY (
 { lib, python3 }:
 
 python3.pkgs.buildPythonApplication {
-  pname = "rhiso";
+  pname = "redhat_iso";
   version = "1.0.0";
   pyproject = true;
   src = ./.;
@@ -46,7 +46,7 @@ python3.pkgs.buildPythonApplication {
 
         apps.default = {
           type = "app";
-          program = "${self.packages.${system}.default}/bin/rhiso";
+          program = "${self.packages.${system}.default}/bin/redhat_iso";
         };
 
         devShells.default = pkgs.mkShell {
@@ -97,11 +97,11 @@ pkgs.callPackage ./default.nix {}
 ```bash
 # Build
 nix-build shell.nix
-./result/bin/rhiso --help
+./result/bin/redhat_iso --help
 
 # Development shell
 nix-shell shell.nix
-python -c "from rhiso import RedHatAPI"
+python -c "from redhat_iso import RedHatAPI"
 ```
 
 ### Nix Flakes
@@ -109,14 +109,14 @@ python -c "from rhiso import RedHatAPI"
 ```bash
 # Build
 nix build
-./result/bin/rhiso --help
+./result/bin/redhat_iso --help
 
 # Run directly
 nix run . -- list
 
 # Development shell
 nix develop
-python -c "from rhiso import RedHatAPI"
+python -c "from redhat_iso import RedHatAPI"
 ```
 
 ## How It Works
@@ -149,7 +149,7 @@ All paths lead to the same `default.nix`, ensuring consistency.
 ```nix
 # flake.nix had full build configuration
 packages.default = python.pkgs.buildPythonApplication {
-  pname = "rhiso";
+  pname = "redhat_iso";
   version = "1.0.0";
   pyproject = true;
   src = ./.;

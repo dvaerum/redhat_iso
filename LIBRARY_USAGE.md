@@ -1,12 +1,12 @@
-# Using rhiso as a Python Library
+# Using redhat_iso as a Python Library
 
-The `rhiso` package can be used both as a command-line tool and as a Python library in your own scripts.
+The `redhat_iso` package can be used both as a command-line tool and as a Python library in your own scripts.
 
 ## Installation
 
 ```bash
 # Using pip
-pip install rhiso
+pip install redhat_iso
 
 # Using Nix
 nix-shell shell.nix
@@ -17,7 +17,7 @@ nix-shell shell.nix
 ### Basic Example
 
 ```python
-from rhiso import RedHatAPI
+from redhat_iso import RedHatAPI
 
 # Initialize with offline token
 token = open("redhat-api-token.txt").read().strip()
@@ -100,7 +100,7 @@ api.download_file(
 
 ```python
 #!/usr/bin/env python3
-from rhiso import RedHatAPI
+from redhat_iso import RedHatAPI
 
 # Initialize
 token = open("redhat-api-token.txt").read().strip()
@@ -143,34 +143,34 @@ The same functionality is available via the command line:
 
 ```bash
 # List images
-rhiso list
-rhiso list --version 9.6 --arch x86_64
+redhat_iso list
+redhat_iso list --version 9.6 --arch x86_64
 
 # Download by checksum
-rhiso download <checksum>
+redhat_iso download <checksum>
 
 # Download by filename
-rhiso download rhel-9.6-x86_64-boot.iso --by-filename
+redhat_iso download rhel-9.6-x86_64-boot.iso --by-filename
 
 # JSON output
-rhiso --json list
-rhiso --json download <checksum>
+redhat_iso --json list
+redhat_iso --json download <checksum>
 ```
 
 ## Running as a Module
 
-You can also run rhiso as a Python module:
+You can also run redhat_iso as a Python module:
 
 ```bash
-python -m rhiso list
-python -m rhiso download <checksum>
+python -m redhat_iso list
+python -m redhat_iso download <checksum>
 ```
 
 ## Use Cases
 
 ### Automation Script
 ```python
-from rhiso import RedHatAPI
+from redhat_iso import RedHatAPI
 
 def download_latest_rhel_boot_iso(output_dir="./iso"):
     """Download the latest RHEL boot ISO."""
@@ -200,7 +200,7 @@ print(f"Downloaded: {filename}")
 
 ### Version Checker
 ```python
-from rhiso import RedHatAPI
+from redhat_iso import RedHatAPI
 
 def check_rhel_versions():
     """Check which RHEL versions are available."""
@@ -219,7 +219,7 @@ check_rhel_versions()
 
 ### Bulk Download
 ```python
-from rhiso import RedHatAPI
+from redhat_iso import RedHatAPI
 
 def download_all_boot_isos(versions=["10.0", "9.6", "8.10"]):
     """Download boot ISOs for multiple versions."""
@@ -250,7 +250,7 @@ download_all_boot_isos()
 ## Error Handling
 
 ```python
-from rhiso import RedHatAPI
+from redhat_iso import RedHatAPI
 import sys
 
 try:

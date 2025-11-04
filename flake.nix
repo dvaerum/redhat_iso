@@ -17,7 +17,7 @@
 
         apps.default = {
           type = "app";
-          program = "${self.packages.${system}.default}/bin/rhiso";
+          program = "${self.packages.${system}.default}/bin/redhat_iso";
         };
 
         devShells.default = pkgs.mkShell {

@@ -1,12 +1,12 @@
 # JSON Output Format Documentation
 
-The `rhiso` tool supports JSON output for all list operations via the `--json` flag.
+The `redhat_iso` tool supports JSON output for all list operations via the `--json` flag.
 
 ## Default List (Currently Supported Releases)
 
 **Command:**
 ```bash
-rhiso --json list
+redhat_iso --json list
 ```
 
 **Output Structure:**
@@ -31,7 +31,7 @@ rhiso --json list
 
 **Command:**
 ```bash
-rhiso --json list --version 9.6 --arch x86_64
+redhat_iso --json list --version 9.6 --arch x86_64
 ```
 
 **Output Structure:**
@@ -56,7 +56,7 @@ rhiso --json list --version 9.6 --arch x86_64
 
 **Command:**
 ```bash
-rhiso --json list --content-set rhel-9-for-x86_64-baseos-isos
+redhat_iso --json list --content-set rhel-9-for-x86_64-baseos-isos
 ```
 
 **Output Structure:**
@@ -91,30 +91,30 @@ Each image object contains:
 
 ### Extract All Checksums
 ```bash
-rhiso --json list --version 9.6 --arch x86_64 | jq -r '.images[].checksum'
+redhat_iso --json list --version 9.6 --arch x86_64 | jq -r '.images[].checksum'
 ```
 
 ### Get Binary DVD Checksum
 ```bash
-rhiso --json list --version 9.6 --arch x86_64 | \
+redhat_iso --json list --version 9.6 --arch x86_64 | \
   jq -r '.images[] | select(.filename | contains("dvd.iso")) | .checksum'
 ```
 
 ### Filter by Date
 ```bash
-rhiso --json list --content-set rhel-9-for-x86_64-baseos-isos | \
+redhat_iso --json list --content-set rhel-9-for-x86_64-baseos-isos | \
   jq '.images[] | select(.datePublished > "2025-01-01")'
 ```
 
 ### Count Available ISOs
 ```bash
-rhiso --json list | jq '[.releases[].images | length] | add'
+redhat_iso --json list | jq '[.releases[].images | length] | add'
 ```
 
 ### Generate Download Script
 ```bash
-rhiso --json list --version 9.6 --arch x86_64 | \
-  jq -r '.images[] | "rhiso download \(.checksum) --output ~/isos"'
+redhat_iso --json list --version 9.6 --arch x86_64 | \
+  jq -r '.images[] | "redhat_iso download \(.checksum) --output ~/isos"'
 ```
 
 ## Integration Examples
@@ -122,10 +122,10 @@ rhiso --json list --version 9.6 --arch x86_64 | \
 ### Bash Script
 ```bash
 #!/bin/bash
-checksums=$(rhiso --json list --version 9.6 --arch x86_64 | jq -r '.images[].checksum')
+checksums=$(redhat_iso --json list --version 9.6 --arch x86_64 | jq -r '.images[].checksum')
 for checksum in $checksums; do
   echo "Downloading: $checksum"
-  rhiso download "$checksum"
+  redhat_iso download "$checksum"
 done
 ```
 
@@ -135,7 +135,7 @@ import subprocess
 import json
 
 result = subprocess.run(
-    ["rhiso", "--json", "list", "--version", "9.6", "--arch", "x86_64"],
+    ["redhat_iso", "--json", "list", "--version", "9.6", "--arch", "x86_64"],
     capture_output=True,
     text=True
 )
@@ -145,17 +145,17 @@ data = json.loads(result.stdout)
 for image in data["images"]:
     if "dvd.iso" in image["filename"]:
         print(f"Downloading {image['filename']}...")
-        subprocess.run(["rhiso", "download", image["checksum"]])
+        subprocess.run(["redhat_iso", "download", image["checksum"]])
 ```
 
 ### jq Filter Examples
 ```bash
 # Get only Boot ISOs
-rhiso --json list | jq '.releases[].images[] | select(.filename | contains("boot.iso"))'
+redhat_iso --json list | jq '.releases[].images[] | select(.filename | contains("boot.iso"))'
 
 # Group by version
-rhiso --json list | jq '.releases | group_by(.version)'
+redhat_iso --json list | jq '.releases | group_by(.version)'
 
 # Get latest release info
-rhiso --json list | jq '.releases[0]'
+redhat_iso --json list | jq '.releases[0]'
 ```

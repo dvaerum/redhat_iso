@@ -6,7 +6,7 @@
 
 1. **Default List** - Automatically discovers and shows latest RHEL releases
    ```bash
-   rhiso list
+   redhat_iso list
    ```
    - Auto-detects newest RHEL versions (10.x, 9.x, 8.x)
    - Discovers minor version updates automatically
@@ -14,31 +14,31 @@
 
 2. **By Version and Architecture**
    ```bash
-   rhiso list --version 9.6 --arch x86_64
-   rhiso list --version 8.10 --arch aarch64
+   redhat_iso list --version 9.6 --arch x86_64
+   redhat_iso list --version 8.10 --arch aarch64
    ```
 
 3. **By Content Set**
    ```bash
-   rhiso list --content-set rhel-9-for-x86_64-baseos-isos
+   redhat_iso list --content-set rhel-9-for-x86_64-baseos-isos
    ```
 
 4. **JSON Output** - For automation and scripting
    ```bash
-   rhiso --json list
-   rhiso --json list --version 9.6 --arch x86_64
+   redhat_iso --json list
+   redhat_iso --json list --version 9.6 --arch x86_64
    ```
 
 ### 📥 Download ISOs
 
 1. **By Checksum** (Precise version control)
    ```bash
-   rhiso download febcc1359fd68faceff82d7eed8d21016e022a17e9c74e0e3f9dc3a78816b2bb
+   redhat_iso download febcc1359fd68faceff82d7eed8d21016e022a17e9c74e0e3f9dc3a78816b2bb
    ```
 
 2. **By Filename** (Automatic search, latest version) ⭐ NEW
    ```bash
-   rhiso download rhel-9.6-x86_64-dvd.iso --by-filename
+   redhat_iso download rhel-9.6-x86_64-dvd.iso --by-filename
    ```
    - Searches across RHEL versions automatically
    - Selects most recent if multiple matches
@@ -46,8 +46,8 @@
 
 3. **Custom Output Directory**
    ```bash
-   rhiso download <checksum> --output ~/Downloads
-   rhiso download rhel-9.6-x86_64-dvd.iso --by-filename --output /var/isos
+   redhat_iso download <checksum> --output ~/Downloads
+   redhat_iso download rhel-9.6-x86_64-dvd.iso --by-filename --output /var/isos
    ```
 
 ### 🔐 Authentication
@@ -67,13 +67,13 @@
 2. **nix-build** - Build once, use many times
    ```bash
    nix-build shell.nix
-   ./result/bin/rhiso list
+   ./result/bin/redhat_iso list
    ```
 
 3. **Direct Python**
    ```bash
    pip install -r requirements.txt
-   ./rhiso.py list
+   ./redhat_iso.py list
    ```
 
 ### 🎯 Key Features
@@ -104,18 +104,18 @@ nix run . -- download rhel-9.6-x86_64-dvd.iso --by-filename
 **Advanced Usage:**
 ```bash
 # JSON automation
-rhiso --json list --version 9.6 --arch x86_64 | jq -r '.images[].checksum'
+redhat_iso --json list --version 9.6 --arch x86_64 | jq -r '.images[].checksum'
 
 # Batch download all ISOs
-rhiso --json list --version 9.6 --arch x86_64 | \
+redhat_iso --json list --version 9.6 --arch x86_64 | \
   jq -r '.images[].checksum' | \
-  xargs -I {} rhiso download {} --output /var/isos
+  xargs -I {} redhat_iso download {} --output /var/isos
 ```
 
 **Filename Search:**
 ```bash
 # Automatically finds latest version
-rhiso download rhel-9.6-x86_64-dvd.iso --by-filename
+redhat_iso download rhel-9.6-x86_64-dvd.iso --by-filename
 
 # Search output:
 # Searching for filename: rhel-9.6-x86_64-dvd.iso

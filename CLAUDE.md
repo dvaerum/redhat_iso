@@ -13,17 +13,17 @@ A Python CLI tool and library to download Red Hat ISO files using the Red Hat Cu
 ```bash
 # Nix (recommended for NixOS)
 nix-build shell.nix                    # Build package
-./result/bin/rhiso --help              # Use built package
+./result/bin/redhat_iso --help              # Use built package
 nix run . -- list                      # Run without building (flakes)
 nix-shell shell.nix                    # Development shell
 
 # Python pip
 pip install -r requirements.txt
-python -m rhiso list                   # Run as module
+python -m redhat_iso list                   # Run as module
 
 # Install as package
 pip install -e .                       # Editable install
-rhiso --help                           # Use installed command
+redhat_iso --help                           # Use installed command
 ```
 
 ### Token Setup
@@ -38,37 +38,37 @@ echo "YOUR_OFFLINE_TOKEN" > redhat-api-token.txt
 
 ```bash
 # Default: Auto-discover latest RHEL versions
-rhiso list
-rhiso --json list                      # JSON output
+redhat_iso list
+redhat_iso --json list                      # JSON output
 
 # By specific version/arch
-rhiso list --version 9.6 --arch x86_64
-rhiso list --version 8.10 --arch aarch64
+redhat_iso list --version 9.6 --arch x86_64
+redhat_iso list --version 8.10 --arch aarch64
 
 # By content set
-rhiso list --content-set rhel-9-for-x86_64-baseos-isos
+redhat_iso list --content-set rhel-9-for-x86_64-baseos-isos
 ```
 
 ### Download ISOs
 
 ```bash
 # By checksum (precise)
-rhiso download <SHA256_CHECKSUM>
+redhat_iso download <SHA256_CHECKSUM>
 
 # By filename (automatic search)
-rhiso download rhel-9.6-x86_64-dvd.iso --by-filename
+redhat_iso download rhel-9.6-x86_64-dvd.iso --by-filename
 
 # Custom output directory
-rhiso download <CHECKSUM> --output ~/Downloads
+redhat_iso download <CHECKSUM> --output ~/Downloads
 
 # JSON output
-rhiso --json download <CHECKSUM>
+redhat_iso --json download <CHECKSUM>
 ```
 
 ### Library Usage
 
 ```python
-from rhiso import RedHatAPI
+from redhat_iso import RedHatAPI
 
 token = open("redhat-api-token.txt").read().strip()
 api = RedHatAPI(token)
@@ -88,9 +88,9 @@ api.download_file("checksum_or_filename", output_dir="./downloads")
 ### Module Structure
 
 ```
-rhiso/
+redhat_iso/
 ├── __init__.py      # Package exports: RedHatAPI, __version__
-├── __main__.py      # Module runner: python -m rhiso
+├── __main__.py      # Module runner: python -m redhat_iso
 ├── api.py           # Core API client (~520 lines)
 └── cli.py           # CLI interface (~125 lines)
 
@@ -100,23 +100,23 @@ example_library_usage.py  # Library usage examples
 
 ### Separation of Concerns
 
-**rhiso/api.py** - Pure API logic
+**redhat_iso/api.py** - Pure API logic
 - `RedHatAPI` class: All API interactions, no CLI dependencies
 - No print statements for errors in library-style methods (like `version_exists()`)
 - Returns data structures; doesn't format output
 
-**rhiso/cli.py** - CLI interface
+**redhat_iso/cli.py** - CLI interface
 - Argument parsing with `argparse`
 - Token file loading from disk
 - Calls `RedHatAPI` methods and handles display
 - Entry point: `main()` function
 
-**rhiso/__init__.py** - Public exports
+**redhat_iso/__init__.py** - Public exports
 - Exports: `RedHatAPI`, `__version__`
 - Package documentation
 
-**rhiso/__main__.py** - Module runner
-- Enables: `python -m rhiso`
+**redhat_iso/__main__.py** - Module runner
+- Enables: `python -m redhat_iso`
 
 ### RedHatAPI Class Methods
 
@@ -221,7 +221,7 @@ See JSON_OUTPUT.md for format details.
 
 ## Development Guidelines
 
-### When Modifying API Logic (rhiso/api.py)
+### When Modifying API Logic (redhat_iso/api.py)
 
 - Keep it CLI-agnostic: return data, don't print output
 - Exception: methods explicitly for CLI (like `list_downloads()`, `find_image_by_filename()`)
@@ -229,7 +229,7 @@ See JSON_OUTPUT.md for format details.
 - Cache expensive operations (like version discovery)
 - Handle `requests.RequestException` gracefully
 
-### When Modifying CLI (rhiso/cli.py)
+### When Modifying CLI (redhat_iso/cli.py)
 
 - All user-facing output happens here
 - Argument parsing with `argparse`
@@ -250,7 +250,7 @@ See JSON_OUTPUT.md for format details.
 - **flake.nix**: Uses flake-utils, imports default.nix
 - **default.nix**: Main package definition with `buildPythonApplication`
 - **shell.nix**: Development shell, imports default.nix
-- Entry point: `rhiso.cli:main` via setuptools console_scripts
+- Entry point: `redhat_iso.cli:main` via setuptools console_scripts
 - Dependencies: Python 3.7+, requests>=2.31.0
 
 ## Testing
@@ -258,17 +258,17 @@ See JSON_OUTPUT.md for format details.
 ```bash
 # Build and test CLI
 nix-build shell.nix
-./result/bin/rhiso list
-./result/bin/rhiso --json list
+./result/bin/redhat_iso list
+./result/bin/redhat_iso --json list
 
 # Test as module
-nix-shell shell.nix --run "python -m rhiso list"
+nix-shell shell.nix --run "python -m redhat_iso list"
 
 # Test library usage
 nix-shell shell.nix --run "python example_library_usage.py"
 
 # Test with custom token file
-./result/bin/rhiso --token-file /path/to/token.txt list
+./result/bin/redhat_iso --token-file /path/to/token.txt list
 ```
 
 ## Security Considerations
