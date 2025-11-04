@@ -154,9 +154,10 @@ redhat_iso download rhel-9.6-x86_64-dvd.iso --by-filename
 
 ### 📚 Documentation
 
-- **README.md** - User guide and installation
-- **USAGE_EXAMPLES.md** - Comprehensive examples
-- **CLAUDE.md** - Technical architecture
-- **JSON_OUTPUT.md** - JSON format reference
-- **FEATURES.md** - This file
-- **TESTING.md** - Test results
+- **[README.md](../README.md)** - User guide and installation
+- **[Documentation Index](README.md)** - All documentation organized by topic
+- **[CLI Examples](usage/cli-examples.md)** - Comprehensive usage examples
+- **[NixOS Integration](nixos/installation.md)** - NixOS module and overlay
+- **[JSON Output Format](usage/json-output.md)** - JSON format reference
+- **[Testing Guide](development/testing.md)** - Testing procedures and results
+- **[CLAUDE.md](../CLAUDE.md)** - Technical architecture for developers

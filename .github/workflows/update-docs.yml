@@ -43,8 +43,8 @@ jobs:
       - name: Run Nix and Bash commands
         run: |
           nix-build generate-doc.nix
-          mkdir -v -p docs/
-          cp -v result docs/options.md
+          mkdir -v -p docs/nixos/
+          cp -v result docs/nixos/module-options.md
 
       - name: Commit changes if any
         run: |

@@ -30,17 +30,30 @@ A Python CLI tool and library to download Red Hat ISO files using the Red Hat Cu
 │
 ├── tests/                       # Testing infrastructure
 │   ├── integration.nix         # NixOS VM tests (10 subtests)
-│   └── README.md               # Test documentation
+│   └── README.md               # Test documentation pointer
 │
-├── docs/                        # Generated documentation
-│   └── options.md              # Auto-generated module options
+├── docs/                        # All documentation
+│   ├── README.md               # Documentation index
+│   ├── features.md             # Feature list
+│   │
+│   ├── usage/                  # User guides
+│   │   ├── cli-examples.md    # CLI usage examples
+│   │   ├── library.md         # Python library API
+│   │   └── json-output.md     # JSON format specs
+│   │
+│   ├── nixos/                  # NixOS-specific
+│   │   ├── installation.md    # Integration guide
+│   │   ├── module-options.md  # Auto-generated options
+│   │   └── packaging.md       # Nix internals
+│   │
+│   └── development/            # Developer docs
+│       ├── architecture.md    # Code structure
+│       └── testing.md         # Testing guide
 │
 ├── .github/workflows/           # CI/CD
 │   └── update-docs.yml         # Auto-documentation workflow
 │
-├── examples/                    # Usage examples
-│   └── USAGE_EXAMPLES.md
-│
+├── examples/                    # Code examples
 ├── flake.nix                    # Nix flake (overlay + module)
 ├── default.nix                  # Package definition
 ├── shell.nix                    # Development shell
@@ -49,13 +62,7 @@ A Python CLI tool and library to download Red Hat ISO files using the Red Hat Cu
 ├── requirements.txt             # Python dependencies
 │
 ├── CLAUDE.md                    # Development guide (this file)
-├── README.md                    # User-facing quick start
-├── NIXOS_USAGE.md              # Complete NixOS guide
-├── LIBRARY_USAGE.md            # Python API documentation
-├── MODULE_STRUCTURE.md         # Package structure details
-├── FEATURES.md                 # Feature list
-├── JSON_OUTPUT.md              # JSON format specs
-└── NIX_STRUCTURE.md            # Nix packaging details
+└── README.md                    # User-facing quick start
 ```
 
 ## Commands
@@ -243,7 +250,7 @@ When `--json` flag is used:
 - Errors output as JSON to stderr
 - Used for automation and scripting
 
-See JSON_OUTPUT.md for format details.
+See [docs/usage/json-output.md](docs/usage/json-output.md) for format details.
 
 ## API Endpoints
 
@@ -299,7 +306,7 @@ See JSON_OUTPUT.md for format details.
    - Add subparser or argument
    - Call new method from `main()`
 3. If library-only, just export from `__init__.py`
-4. Update documentation (README.md, USAGE_EXAMPLES.md, LIBRARY_USAGE.md)
+4. Update documentation (see below)
 
 **For NixOS module features:**
 1. Add option to `modules/redhat-iso-downloader.nix`:
@@ -314,10 +321,11 @@ See JSON_OUTPUT.md for format details.
 **Documentation files to update:**
 - `CLAUDE.md`: Architecture and commands (this file)
 - `README.md`: User-facing quick start
-- `NIXOS_USAGE.md`: Complete NixOS integration guide
-- `LIBRARY_USAGE.md`: Python library API examples
-- `USAGE_EXAMPLES.md`: CLI usage examples
-- `docs/options.md`: Auto-generated from `generate-doc.nix`
+- `docs/README.md`: Documentation index if adding new docs
+- `docs/usage/cli-examples.md`: CLI usage examples
+- `docs/usage/library.md`: Python library API examples
+- `docs/nixos/installation.md`: NixOS integration guide
+- `docs/nixos/module-options.md`: Auto-generated from `generate-doc.nix`
 
 ### Nix Packaging
 
@@ -438,7 +446,7 @@ cat result
 - Provides minimal NixOS infrastructure for module evaluation
 - Filters to only document `services.redhat-iso-downloader` options
 - GitHub Actions workflow (`.github/workflows/update-docs.yml`) runs on every push
-- Auto-commits updated docs to `docs/options.md` if changes detected
+- Auto-commits updated docs to `docs/nixos/module-options.md` if changes detected
 
 ## CI/CD
 
@@ -450,7 +458,7 @@ Runs on every push to any branch:
 
 1. **Setup**: Checks out code, configures git user, installs Nix
 2. **Build**: Runs `nix-build generate-doc.nix` to generate docs
-3. **Update**: Copies result to `docs/options.md`
+3. **Update**: Copies result to `docs/nixos/module-options.md`
 4. **Commit**: Commits and pushes if changes detected
 
 **Requirements:**

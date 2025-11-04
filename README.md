@@ -191,6 +191,29 @@ Your offline token may be expired or invalid. Generate a new token at https://ac
 - Add it to `.gitignore` if using version control
 - The offline token never expires as long as it's used at least once every 30 days
 
+## Documentation
+
+Complete documentation is organized in the `docs/` directory:
+
+### 📖 User Guides
+- **[CLI Examples](docs/usage/cli-examples.md)** - Comprehensive command-line usage examples
+- **[Library Usage](docs/usage/library.md)** - Using redhat_iso as a Python library
+- **[JSON Output](docs/usage/json-output.md)** - JSON format specification for automation
+
+### 🔧 NixOS Integration
+- **[NixOS Installation](docs/nixos/installation.md)** - Complete integration guide with module and overlay
+- **[Module Options](docs/nixos/module-options.md)** - Auto-generated module options reference
+- **[Nix Packaging](docs/nixos/packaging.md)** - Nix package structure internals
+
+### 👨‍💻 Developer Documentation
+- **[Architecture](docs/development/architecture.md)** - Code structure and design
+- **[Testing Guide](docs/development/testing.md)** - Testing procedures and NixOS integration tests
+- **[CLAUDE.md](CLAUDE.md)** - Development guide for Claude Code
+
+### 📋 Reference
+- **[Feature List](docs/features.md)** - Complete list of features
+- **[Documentation Index](docs/README.md)** - Full documentation index
+
 ## License
 
 This tool is provided as-is for use with valid Red Hat subscriptions.

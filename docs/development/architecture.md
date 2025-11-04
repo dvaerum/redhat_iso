@@ -170,10 +170,10 @@ The old `redhat_iso.py` file can be kept for reference or removed as it's fully 
 ## Examples
 
 See documentation:
-- **LIBRARY_USAGE.md** - Comprehensive library examples
-- **example_library_usage.py** - Runnable example script
-- **USAGE_EXAMPLES.md** - CLI usage examples
-- **README.md** - Installation and quick start
+- **[docs/usage/library.md](../usage/library.md)** - Comprehensive library examples
+- **example_library_usage.py** - Runnable example script in repository root
+- **[docs/usage/cli-examples.md](../usage/cli-examples.md)** - CLI usage examples
+- **[README.md](../../README.md)** - Installation and quick start
 
 ## Testing
 

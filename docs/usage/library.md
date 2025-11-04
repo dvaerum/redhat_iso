@@ -290,5 +290,5 @@ Each image dictionary contains:
 ## See Also
 
 - [README.md](README.md) - General usage and installation
-- [USAGE_EXAMPLES.md](USAGE_EXAMPLES.md) - CLI usage examples
+- [CLI Examples](cli-examples.md) - CLI usage examples
 - [example_library_usage.py](example_library_usage.py) - Runnable example
