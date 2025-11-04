@@ -44,11 +44,14 @@ class RedHatAPI:
             self.access_token = data['access_token']
             return self.access_token
         except requests.RequestException as e:
-            print(f"Error getting access token: {e}", file=sys.stderr)
-            sys.exit(1)
+            raise RuntimeError(f"Error getting access token: {e}") from e
 
     def list_rhel_images(self, version: str, arch: str) -> List[Dict]:
-        """List RHEL images for a specific version and architecture."""
+        """
+        List RHEL images for a specific version and architecture.
+        Returns empty list if version/arch not found (404).
+        Raises exception for other errors.
+        """
         access_token = self.get_access_token()
         headers = {'Authorization': f'Bearer {access_token}'}
 
@@ -59,15 +62,18 @@ class RedHatAPI:
             data = response.json()
             return data.get('body', [])
         except requests.RequestException as e:
-            print(f"Error listing RHEL images: {e}", file=sys.stderr)
-            if hasattr(e, 'response') and e.response is not None:
-                print(f"Status: {e.response.status_code}", file=sys.stderr)
-                if e.response.status_code == 404:
-                    print(f"Version {version} or architecture {arch} not found.", file=sys.stderr)
-            return []
+            # Return empty list for 404 (not found)
+            if hasattr(e, 'response') and e.response is not None and e.response.status_code == 404:
+                return []
+            # Raise exception for other errors
+            raise RuntimeError(f"Error listing RHEL images: {e}") from e
 
     def list_images_by_content_set(self, content_set: str) -> List[Dict]:
-        """List images in a specific content set."""
+        """
+        List images in a specific content set.
+        Returns empty list if content set not found (404).
+        Raises exception for other errors.
+        """
         access_token = self.get_access_token()
         headers = {'Authorization': f'Bearer {access_token}'}
 
@@ -78,10 +84,11 @@ class RedHatAPI:
             data = response.json()
             return data.get('body', [])
         except requests.RequestException as e:
-            print(f"Error listing images for content set: {e}", file=sys.stderr)
-            if hasattr(e, 'response') and e.response is not None:
-                print(f"Status: {e.response.status_code}", file=sys.stderr)
-            return []
+            # Return empty list for 404 (not found)
+            if hasattr(e, 'response') and e.response is not None and e.response.status_code == 404:
+                return []
+            # Raise exception for other errors
+            raise RuntimeError(f"Error listing images for content set: {e}") from e
 
     def version_exists(self, version: str, arch: str) -> bool:
         """Check if a RHEL version exists (quietly, without printing errors)."""
@@ -162,17 +169,29 @@ class RedHatAPI:
 
         return discovered
 
-    def find_image_by_filename(self, filename: str) -> Optional[Dict]:
+    def find_image_by_filename(self, filename: str,
+                               message_callback: Optional[callable] = None) -> Optional[Dict]:
         """
         Find an image by filename across multiple versions.
         If multiple matches found, returns the most recent one.
+
+        Args:
+            filename: Filename to search for
+            message_callback: Optional callback for progress messages (str) -> None
+
+        Returns:
+            Image dict if found, None otherwise
         """
-        print(f"Searching for filename: {filename}", flush=True)
-        print("This may take a moment as we search across multiple RHEL versions...", flush=True)
-        print(flush=True)
+        def msg(text: str) -> None:
+            """Helper to call message_callback if provided."""
+            if message_callback:
+                message_callback(text)
+
+        msg(f"Searching for filename: {filename}")
+        msg("This may take a moment as we search across multiple RHEL versions...")
+        msg("")
 
         # Discover available versions dynamically for both x86_64 and aarch64
-        # This automatically finds the latest versions
         x86_64_versions = self.discover_rhel_versions("x86_64")
         aarch64_versions = self.discover_rhel_versions("aarch64")
 
@@ -182,34 +201,34 @@ class RedHatAPI:
         matches = []
 
         for version, arch in search_versions:
-            print(f"  Searching RHEL {version} ({arch})...", end='', flush=True)
+            msg(f"  Searching RHEL {version} ({arch})...")
             images = self.list_rhel_images(version, arch)
             for img in images:
                 if img.get('filename') == filename:
                     matches.append(img)
-                    print(f" ✓ Found!", flush=True)
+                    msg(f"  Searching RHEL {version} ({arch})... ✓ Found!")
                     # If we found one in the most recent version, we can stop early
                     if not matches or len(matches) == 1:
                         break
             if not any(img.get('filename') == filename for img in images):
-                print(" -", flush=True)
+                msg(f"  Searching RHEL {version} ({arch})... -")
 
             # Early exit if we found a match in a recent version
             if matches:
                 break
 
         if not matches:
-            print(f"\nNo image found with filename: {filename}", flush=True)
+            msg(f"\nNo image found with filename: {filename}")
             return None
 
         if len(matches) == 1:
-            print(flush=True)
-            print("Found 1 match.", flush=True)
+            msg("")
+            msg("Found 1 match.")
             return matches[0]
 
         # Multiple matches - return the most recent
-        print(flush=True)
-        print(f"Found {len(matches)} matches. Selecting the most recent...", flush=True)
+        msg("")
+        msg(f"Found {len(matches)} matches. Selecting the most recent...")
 
         # Sort by datePublished in descending order
         matches_sorted = sorted(
@@ -219,141 +238,76 @@ class RedHatAPI:
         )
 
         latest = matches_sorted[0]
-        print(f"Selected: {latest.get('imageName')} (published {latest.get('datePublished')})", flush=True)
-        print(flush=True)
+        msg(f"Selected: {latest.get('imageName')} (published {latest.get('datePublished')})")
+        msg("")
 
         return latest
 
     def list_downloads(self, version: Optional[str] = None, arch: Optional[str] = None,
-                      content_set: Optional[str] = None, json_output: bool = False) -> None:
-        """List available downloads from Red Hat Customer Portal API."""
+                      content_set: Optional[str] = None) -> Dict:
+        """
+        List available downloads from Red Hat Customer Portal API.
 
+        Returns:
+            Dict with structure depending on input:
+            - content_set: {"type": "content_set", "content_set": str, "images": List[Dict]}
+            - version+arch: {"type": "version_arch", "version": str, "arch": str, "images": List[Dict]}
+            - default: {"type": "default", "releases": List[{"version": str, "architecture": str, "images": List[Dict]}]}
+        """
         if content_set:
-            if not json_output:
-                print("Fetching available downloads from Red Hat Customer Portal...")
-                print()
             # List images from a specific content set
             images = self.list_images_by_content_set(content_set)
-
-            if json_output:
-                output = {
-                    "content_set": content_set,
-                    "images": images
-                }
-                print(json.dumps(output, indent=2))
-                return
-
-            if not images:
-                print(f"No images found for content set: {content_set}")
-                return
-
-            print(f"Available images in content set '{content_set}':")
-            print()
-            for img in images:
-                filename = img.get('filename', 'N/A')
-                checksum = img.get('checksum', 'N/A')
-                date = img.get('datePublished', 'N/A')
-                arch_info = img.get('arch', 'N/A')
-
-                print(f"  {filename}")
-                print(f"    Architecture: {arch_info}")
-                print(f"    Checksum: {checksum}")
-                print(f"    Published: {date}")
-                print()
+            return {
+                "type": "content_set",
+                "content_set": content_set,
+                "images": images
+            }
 
         elif version and arch:
-            if not json_output:
-                print("Fetching available downloads from Red Hat Customer Portal...")
-                print()
             # List RHEL images by version and architecture
             images = self.list_rhel_images(version, arch)
-
-            if json_output:
-                output = {
-                    "version": version,
-                    "architecture": arch,
-                    "images": images
-                }
-                print(json.dumps(output, indent=2))
-                return
-
-            if not images:
-                print(f"No images found for RHEL {version} ({arch})")
-                print()
-                print("Try different version/arch combinations. Examples:")
-                print("  rhiso list --version 9.6 --arch x86_64")
-                print("  rhiso list --version 8.10 --arch aarch64")
-                return
-
-            print(f"Available images for RHEL {version} ({arch}):")
-            print()
-            for img in images:
-                filename = img.get('filename', 'N/A')
-                checksum = img.get('checksum', 'N/A')
-                date = img.get('datePublished', 'N/A')
-                image_name = img.get('imageName', 'N/A')
-
-                print(f"  {image_name}")
-                print(f"    Filename: {filename}")
-                print(f"    Checksum: {checksum}")
-                print(f"    Published: {date}")
-                print()
+            return {
+                "type": "version_arch",
+                "version": version,
+                "architecture": arch,
+                "images": images
+            }
 
         else:
             # Default: List currently supported RHEL versions for x86_64
-            if not json_output:
-                print("Fetching currently supported RHEL releases for x86_64...")
-                print()
-
             # Discover available RHEL versions dynamically
-            # This will find the latest versions plus check for newer releases
             default_versions = self.discover_rhel_versions("x86_64")
 
             # Limit to top 3 most recent versions for default display
             default_versions = default_versions[:3]
 
             all_releases = []
-            for ver, arch in default_versions:
-                images = self.list_rhel_images(ver, arch)
+            for ver, arch_info in default_versions:
+                images = self.list_rhel_images(ver, arch_info)
                 if images:
-                    if json_output:
-                        # Filter to ISO files only for JSON output too
-                        iso_images = [img for img in images if img.get('filename', '').endswith('.iso')]
-                        all_releases.append({
-                            "version": ver,
-                            "architecture": arch,
-                            "images": iso_images
-                        })
-                    else:
-                        print(f"═══ RHEL {ver} ({arch}) ═══")
-                        print()
-                        for img in images:
-                            filename = img.get('filename', 'N/A')
-                            checksum = img.get('checksum', 'N/A')
-                            image_name = img.get('imageName', 'N/A')
+                    # Filter to ISO files only
+                    iso_images = [img for img in images if img.get('filename', '').endswith('.iso')]
+                    all_releases.append({
+                        "version": ver,
+                        "architecture": arch_info,
+                        "images": iso_images
+                    })
 
-                            # Only show ISO files by default
-                            if filename.endswith('.iso'):
-                                print(f"  {image_name}")
-                                print(f"    Filename: {filename}")
-                                print(f"    Checksum: {checksum}")
-                                print()
-                        print()
-
-            if json_output:
-                output = {
-                    "releases": all_releases
-                }
-                print(json.dumps(output, indent=2))
-            else:
-                print("For other versions or architectures, use:")
-                print("  rhiso list --version <version> --arch <arch>")
-                print()
-                print("Common versions: 9.6, 9.5, 9.4, 8.10, 8.9, 7.9")
-                print("Common architectures: x86_64, aarch64, ppc64le, s390x")
+            return {
+                "type": "default",
+                "releases": all_releases
+            }
 
     def get_download_info(self, checksum: str) -> Dict:
-        """Get download information for a file by checksum."""
+        """
+        Get download information for a file by checksum.
+
+        Returns:
+            Dict with download info including 'body' with 'filename' and 'href'
+
+        Raises:
+            RuntimeError: If API call fails or response is invalid
+        """
         access_token = self.get_access_token()
 
         headers = {
@@ -385,11 +339,11 @@ class RedHatAPI:
 
             return response.json()
         except requests.RequestException as e:
-            print(f"Error getting download info: {e}", file=sys.stderr)
+            error_msg = f"Error getting download info: {e}"
             if hasattr(e, 'response') and e.response is not None:
-                print(f"Response status: {e.response.status_code}", file=sys.stderr)
-                print(f"Response text: {e.response.text[:500]}", file=sys.stderr)
-            sys.exit(1)
+                error_msg += f"\nResponse status: {e.response.status_code}"
+                error_msg += f"\nResponse text: {e.response.text[:500]}"
+            raise RuntimeError(error_msg) from e
 
     @staticmethod
     def calculate_sha256(file_path: str) -> str:
@@ -401,7 +355,9 @@ class RedHatAPI:
                 sha256_hash.update(byte_block)
         return sha256_hash.hexdigest()
 
-    def download_file(self, identifier: str, output_dir: str = ".", by_filename: bool = False, json_output: bool = False) -> None:
+    def download_file(self, identifier: str, output_dir: str = ".", by_filename: bool = False,
+                     progress_callback: Optional[callable] = None,
+                     message_callback: Optional[callable] = None) -> Dict:
         """
         Download a file by checksum or filename.
 
@@ -409,84 +365,74 @@ class RedHatAPI:
             identifier: Either a checksum or filename
             output_dir: Directory to save the downloaded file
             by_filename: If True, treat identifier as filename; otherwise as checksum
-            json_output: If True, output results in JSON format
+            progress_callback: Optional callback for download progress (downloaded: int, total: int) -> None
+            message_callback: Optional callback for status messages (str) -> None
+
+        Returns:
+            Dict with download result:
+            {
+                "status": "success" | "error",
+                "filename": str,
+                "checksum": str,
+                "path": str,
+                "size": int,
+                "verified": bool,
+                "error": str (only if status=="error")
+            }
+
+        Raises:
+            RuntimeError: If download fails, file not found, or checksum mismatch
         """
+        def msg(text: str) -> None:
+            """Helper to call message_callback if provided."""
+            if message_callback:
+                message_callback(text)
+
+        def progress(downloaded: int, total: int) -> None:
+            """Helper to call progress_callback if provided."""
+            if progress_callback:
+                progress_callback(downloaded, total)
+
+        # Resolve filename to checksum if needed
         if by_filename:
-            # Search for the file by filename
-            if not json_output:
-                print(f"Searching for filename: {identifier}", flush=True)
-                print("This may take a moment as we search across multiple RHEL versions...", flush=True)
-                print(flush=True)
-
-            # We need to temporarily suppress the print statements in find_image_by_filename for JSON
-            if json_output:
-                # Search quietly for JSON mode using discovered versions
-                x86_64_versions = self.discover_rhel_versions("x86_64")
-                aarch64_versions = self.discover_rhel_versions("aarch64")
-                search_versions = x86_64_versions + aarch64_versions
-
-                image = None
-                for version, arch in search_versions:
-                    images = self.list_rhel_images(version, arch)
-                    for img in images:
-                        if img.get('filename') == identifier:
-                            image = img
-                            break
-                    if image:
-                        break
-            else:
-                image = self.find_image_by_filename(identifier)
+            image = self.find_image_by_filename(identifier, message_callback=message_callback)
 
             if not image:
-                if json_output:
-                    print(json.dumps({"error": f"File not found: {identifier}"}, indent=2))
-                else:
-                    print(f"Error: Could not find file with name: {identifier}", file=sys.stderr)
-                sys.exit(1)
+                raise RuntimeError(f"File not found: {identifier}")
 
             checksum = image.get('checksum')
             if not checksum:
-                if json_output:
-                    print(json.dumps({"error": "No checksum found for image"}, indent=2))
-                else:
-                    print(f"Error: No checksum found for image", file=sys.stderr)
-                sys.exit(1)
+                raise RuntimeError("No checksum found for image")
 
-            if not json_output:
-                print(f"Using checksum: {checksum}")
-                print()
+            msg(f"Using checksum: {checksum}")
+            msg("")
         else:
             checksum = identifier
 
-        if not json_output:
-            print(f"Fetching download information for checksum: {checksum}", flush=True)
+        msg(f"Fetching download information for checksum: {checksum}")
 
         download_info = self.get_download_info(checksum)
 
         if 'body' not in download_info:
-            print(f"Error: Unexpected response format: {download_info}", file=sys.stderr)
-            sys.exit(1)
+            raise RuntimeError(f"Unexpected response format: {download_info}")
 
         body = download_info['body']
         filename = body.get('filename')
         download_url = body.get('href')
 
         if not filename or not download_url:
-            print(f"Error: Missing filename or download URL in response", file=sys.stderr)
-            print(f"Response: {download_info}", file=sys.stderr)
-            sys.exit(1)
+            raise RuntimeError(f"Missing filename or download URL in response: {download_info}")
 
         output_path = Path(output_dir) / filename
 
         # Create output directory if it doesn't exist
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-        if not json_output:
-            print(f"Downloading: {filename}", flush=True)
-            print(f"Destination: {output_path}", flush=True)
+        msg(f"Downloading: {filename}")
+        msg(f"Destination: {output_path}")
 
         try:
-            # Download with progress indication (suppressed in JSON mode)
+            # Download with progress indication
             response = requests.get(download_url, stream=True, timeout=120)
             response.raise_for_status()
 
@@ -499,61 +445,34 @@ class RedHatAPI:
                     if chunk:
                         f.write(chunk)
                         downloaded += len(chunk)
-                        if total_size > 0 and not json_output:
-                            progress = (downloaded / total_size) * 100
-                            print(f"\rProgress: {progress:.1f}% ({downloaded}/{total_size} bytes)", end='', flush=True)
+                        progress(downloaded, total_size)
 
             # Verify checksum
-            if not json_output:
-                print(flush=True)  # New line after progress
-                print(f"Verifying checksum...", flush=True)
+            msg("")  # New line after progress
+            msg("Verifying checksum...")
 
             calculated_checksum = self.calculate_sha256(str(output_path))
 
             if calculated_checksum != checksum:
                 # Checksum mismatch - delete the file
                 output_path.unlink()
-                error_msg = f"Checksum verification failed!\n  Expected: {checksum}\n  Got:      {calculated_checksum}"
+                raise RuntimeError(
+                    f"Checksum mismatch!\n"
+                    f"Expected: {checksum}\n"
+                    f"Got:      {calculated_checksum}\n"
+                    f"File deleted for security."
+                )
 
-                if json_output:
-                    error_result = {
-                        "error": "Checksum verification failed",
-                        "expected_checksum": checksum,
-                        "calculated_checksum": calculated_checksum,
-                        "filename": filename,
-                        "status": "failed"
-                    }
-                    print(json.dumps(error_result, indent=2), file=sys.stderr)
-                else:
-                    print(f"Error: {error_msg}", file=sys.stderr)
-                sys.exit(1)
+            msg("Checksum verified successfully!")
 
-            if not json_output:
-                print(f"Checksum verified successfully!", flush=True)
-
-            if json_output:
-                # Output JSON result after successful download and verification
-                result = {
-                    "filename": filename,
-                    "checksum": checksum,
-                    "destination": str(output_path),
-                    "size": downloaded,
-                    "verified": True,
-                    "status": "completed"
-                }
-                print(json.dumps(result, indent=2))
-            else:
-                print(f"Successfully downloaded: {output_path}", flush=True)
+            return {
+                "status": "success",
+                "filename": filename,
+                "checksum": checksum,
+                "path": str(output_path),
+                "size": downloaded,
+                "verified": True
+            }
 
         except requests.RequestException as e:
-            if json_output:
-                error_result = {
-                    "error": f"Download failed: {str(e)}",
-                    "filename": filename,
-                    "checksum": checksum,
-                    "status": "failed"
-                }
-                print(json.dumps(error_result, indent=2), file=sys.stderr)
-            else:
-                print(f"\nError downloading file: {e}", file=sys.stderr)
-            sys.exit(1)
+            raise RuntimeError(f"Download failed: {e}") from e

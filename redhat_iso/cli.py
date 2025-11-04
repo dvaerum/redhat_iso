@@ -3,6 +3,7 @@ CLI interface for Red Hat ISO Download Tool.
 """
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -27,6 +28,163 @@ def load_token(token_file: str = "redhat-api-token.txt") -> str:
         sys.exit(1)
 
     return token
+
+
+def format_list_output(result: dict, json_output: bool = False) -> None:
+    """Format and print list command output."""
+    if json_output:
+        # JSON output
+        if result["type"] == "content_set":
+            output = {
+                "content_set": result["content_set"],
+                "images": result["images"]
+            }
+        elif result["type"] == "version_arch":
+            output = {
+                "version": result["version"],
+                "architecture": result["architecture"],
+                "images": result["images"]
+            }
+        else:  # default
+            output = {
+                "releases": result["releases"]
+            }
+        print(json.dumps(output, indent=2))
+        return
+
+    # Text output
+    if result["type"] == "content_set":
+        print("Fetching available downloads from Red Hat Customer Portal...")
+        print()
+
+        images = result["images"]
+        content_set = result["content_set"]
+
+        if not images:
+            print(f"No images found for content set: {content_set}")
+            return
+
+        print(f"Available images in content set '{content_set}':")
+        print()
+        for img in images:
+            filename = img.get('filename', 'N/A')
+            checksum = img.get('checksum', 'N/A')
+            date = img.get('datePublished', 'N/A')
+            arch_info = img.get('arch', 'N/A')
+
+            print(f"  {filename}")
+            print(f"    Architecture: {arch_info}")
+            print(f"    Checksum: {checksum}")
+            print(f"    Published: {date}")
+            print()
+
+    elif result["type"] == "version_arch":
+        print("Fetching available downloads from Red Hat Customer Portal...")
+        print()
+
+        images = result["images"]
+        version = result["version"]
+        arch = result["architecture"]
+
+        if not images:
+            print(f"No images found for RHEL {version} ({arch})")
+            print()
+            print("Try different version/arch combinations. Examples:")
+            print("  redhat_iso list --version 9.6 --arch x86_64")
+            print("  redhat_iso list --version 8.10 --arch aarch64")
+            return
+
+        print(f"Available images for RHEL {version} ({arch}):")
+        print()
+        for img in images:
+            filename = img.get('filename', 'N/A')
+            checksum = img.get('checksum', 'N/A')
+            date = img.get('datePublished', 'N/A')
+            image_name = img.get('imageName', 'N/A')
+
+            print(f"  {image_name}")
+            print(f"    Filename: {filename}")
+            print(f"    Checksum: {checksum}")
+            print(f"    Published: {date}")
+            print()
+
+    else:  # default
+        print("Fetching currently supported RHEL releases for x86_64...")
+        print()
+
+        for release in result["releases"]:
+            ver = release["version"]
+            arch = release["architecture"]
+            images = release["images"]
+
+            print(f"═══ RHEL {ver} ({arch}) ═══")
+            print()
+            for img in images:
+                filename = img.get('filename', 'N/A')
+                checksum = img.get('checksum', 'N/A')
+                image_name = img.get('imageName', 'N/A')
+
+                print(f"  {image_name}")
+                print(f"    Filename: {filename}")
+                print(f"    Checksum: {checksum}")
+                print()
+            print()
+
+        print("For other versions or architectures, use:")
+        print("  redhat_iso list --version <version> --arch <arch>")
+        print()
+        print("Common versions: 9.6, 9.5, 9.4, 8.10, 8.9, 7.9")
+        print("Common architectures: x86_64, aarch64, ppc64le, s390x")
+
+
+def format_download_output(result: dict, json_output: bool = False) -> None:
+    """Format and print download command success output."""
+    if json_output:
+        print(json.dumps(result, indent=2))
+    else:
+        print()
+        print("Download complete!")
+        print(f"  File: {result['filename']}")
+        print(f"  Path: {result['path']}")
+        print(f"  Size: {result['size']:,} bytes")
+        print(f"  Checksum: {result['checksum']}")
+        print(f"  Verified: {result['verified']}")
+
+
+def create_progress_callback(json_output: bool):
+    """Create a progress callback for downloads."""
+    if json_output:
+        # No progress output in JSON mode
+        return None
+
+    def show_progress(downloaded: int, total: int) -> None:
+        """Display download progress."""
+        if total > 0:
+            percent = (downloaded / total) * 100
+            bar_length = 50
+            filled = int(bar_length * downloaded / total)
+            bar = '=' * filled + '-' * (bar_length - filled)
+
+            mb_downloaded = downloaded / (1024 * 1024)
+            mb_total = total / (1024 * 1024)
+
+            print(f"\r  Progress: [{bar}] {percent:.1f}% ({mb_downloaded:.1f}/{mb_total:.1f} MB)",
+                  end='', flush=True)
+
+    return show_progress
+
+
+def create_message_callback(json_output: bool):
+    """Create a message callback."""
+    if json_output:
+        # No message output in JSON mode
+        return None
+
+    def show_message(message: str) -> None:
+        """Display a message."""
+        print(message, flush=True)
+
+    return show_message
 
 
 def main():
@@ -105,20 +263,51 @@ Getting Started:
         sys.exit(1)
 
     # Load token and initialize API client
-    token = load_token(args.token_file)
-    api = RedHatAPI(token)
+    try:
+        token = load_token(args.token_file)
+        api = RedHatAPI(token)
+    except Exception as e:
+        if args.json:
+            print(json.dumps({"error": str(e)}, indent=2))
+        else:
+            print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
     # Execute command
-    if args.command == 'list':
-        api.list_downloads(
-            version=args.version,
-            arch=args.arch,
-            content_set=args.content_set,
-            json_output=args.json
-        )
+    try:
+        if args.command == 'list':
+            result = api.list_downloads(
+                version=args.version,
+                arch=args.arch,
+                content_set=args.content_set
+            )
+            format_list_output(result, args.json)
 
-    elif args.command == 'download':
-        api.download_file(args.identifier, args.output, args.by_filename, args.json)
+        elif args.command == 'download':
+            progress_cb = create_progress_callback(args.json)
+            message_cb = create_message_callback(args.json)
+
+            result = api.download_file(
+                identifier=args.identifier,
+                output_dir=args.output,
+                by_filename=args.by_filename,
+                progress_callback=progress_cb,
+                message_callback=message_cb
+            )
+            format_download_output(result, args.json)
+
+    except RuntimeError as e:
+        if args.json:
+            print(json.dumps({"error": str(e)}, indent=2))
+        else:
+            print(f"\nError: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        if args.json:
+            print(json.dumps({"error": f"Unexpected error: {e}"}, indent=2))
+        else:
+            print(f"\nUnexpected error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == '__main__':
