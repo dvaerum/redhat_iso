@@ -157,6 +157,11 @@ def create_progress_callback(json_output: bool):
         # No progress output in JSON mode
         return None
 
+    # Only show progress bar when output is to a TTY
+    # (prevents garbled output when redirecting to files or pipes)
+    if not sys.stdout.isatty():
+        return None
+
     def show_progress(downloaded: int, total: int) -> None:
         """Display download progress."""
         if total > 0:
