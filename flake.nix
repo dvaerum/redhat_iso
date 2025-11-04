@@ -15,6 +15,12 @@
       overlays.default = final: prev: {
         redhat_iso = prev.callPackage ./default.nix {};
       };
+
+      # NixOS module for automatic ISO downloads
+      # Usage in configuration.nix:
+      #   imports = [ inputs.redhat_iso.nixosModules.default ];
+      #   services.redhat-iso-downloader.enable = true;
+      nixosModules.default = import ./modules/redhat-iso-downloader.nix;
     } //
     flake-utils.lib.eachDefaultSystem (system:
       let
