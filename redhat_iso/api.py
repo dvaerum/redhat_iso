@@ -2,6 +2,7 @@
 Red Hat Customer Portal API client.
 """
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -390,6 +391,16 @@ class RedHatAPI:
                 print(f"Response text: {e.response.text[:500]}", file=sys.stderr)
             sys.exit(1)
 
+    @staticmethod
+    def calculate_sha256(file_path: str) -> str:
+        """Calculate SHA-256 checksum of a file."""
+        sha256_hash = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            # Read file in chunks to handle large files efficiently
+            for byte_block in iter(lambda: f.read(8192), b""):
+                sha256_hash.update(byte_block)
+        return sha256_hash.hexdigest()
+
     def download_file(self, identifier: str, output_dir: str = ".", by_filename: bool = False, json_output: bool = False) -> None:
         """
         Download a file by checksum or filename.
@@ -492,18 +503,46 @@ class RedHatAPI:
                             progress = (downloaded / total_size) * 100
                             print(f"\rProgress: {progress:.1f}% ({downloaded}/{total_size} bytes)", end='', flush=True)
 
+            # Verify checksum
+            if not json_output:
+                print(flush=True)  # New line after progress
+                print(f"Verifying checksum...", flush=True)
+
+            calculated_checksum = self.calculate_sha256(str(output_path))
+
+            if calculated_checksum != checksum:
+                # Checksum mismatch - delete the file
+                output_path.unlink()
+                error_msg = f"Checksum verification failed!\n  Expected: {checksum}\n  Got:      {calculated_checksum}"
+
+                if json_output:
+                    error_result = {
+                        "error": "Checksum verification failed",
+                        "expected_checksum": checksum,
+                        "calculated_checksum": calculated_checksum,
+                        "filename": filename,
+                        "status": "failed"
+                    }
+                    print(json.dumps(error_result, indent=2), file=sys.stderr)
+                else:
+                    print(f"Error: {error_msg}", file=sys.stderr)
+                sys.exit(1)
+
+            if not json_output:
+                print(f"Checksum verified successfully!", flush=True)
+
             if json_output:
-                # Output JSON result after successful download
+                # Output JSON result after successful download and verification
                 result = {
                     "filename": filename,
                     "checksum": checksum,
                     "destination": str(output_path),
                     "size": downloaded,
+                    "verified": True,
                     "status": "completed"
                 }
                 print(json.dumps(result, indent=2))
             else:
-                print(flush=True)  # New line after progress
                 print(f"Successfully downloaded: {output_path}", flush=True)
 
         except requests.RequestException as e:

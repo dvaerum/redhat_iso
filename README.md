@@ -153,7 +153,10 @@ redhat_iso --token-file /path/to/token.txt download <CHECKSUM>
    - By content set: `/management/v1/images/cset/{content_set}`
 3. **Download**: Uses the API endpoint to get the download URL for a specific checksum
    - Endpoint: `/management/v1/images/{checksum}/download`
-4. **Progress**: Shows download progress as the file is retrieved
+4. **Verification**: Automatically calculates SHA-256 checksum of downloaded file and verifies it matches
+   - Deletes file and reports error if checksum doesn't match
+   - Ensures data integrity and authenticity
+5. **Progress**: Shows download progress and verification status
 
 ## Example Workflow
 

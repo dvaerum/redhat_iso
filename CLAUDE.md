@@ -139,7 +139,8 @@ example_library_usage.py  # Library usage examples
 **Search & Download:**
 - `find_image_by_filename(filename)`: Search across versions for filename (with progress prints)
 - `get_download_info(checksum)`: Get download URL for checksum
-- `download_file(identifier, ...)`: Download by checksum or filename with progress
+- `download_file(identifier, ...)`: Download by checksum or filename with progress and automatic SHA-256 verification
+- `calculate_sha256(file_path)`: Calculate SHA-256 checksum of a file (static method)
 
 ### Authentication Flow
 
@@ -179,6 +180,8 @@ When `--by-filename` flag is used:
    - Early exit on first match (searches newest first)
 4. If multiple matches, select most recent by `datePublished`
 5. Extract checksum and download via `get_download_info()`
+6. After download: Calculate SHA-256 of file and verify against expected checksum
+7. If mismatch: Delete file and exit with error; If match: Report success
 
 ### JSON Output
 
@@ -277,3 +280,6 @@ nix-shell shell.nix --run "python example_library_usage.py"
 - Access tokens expire after 15 minutes
 - Never log or print token values
 - Requires valid Red Hat subscription with download permissions
+- **Automatic SHA-256 verification**: All downloads are verified against expected checksums
+  - Corrupted or tampered files are detected and deleted
+  - Ensures data integrity and authenticity
