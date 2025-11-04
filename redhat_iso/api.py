@@ -424,15 +424,17 @@ class RedHatAPI:
             raise RuntimeError(f"Missing filename or download URL in response: {download_info}")
 
         output_path = Path(output_dir) / filename
+        temp_path = Path(output_dir) / f"{filename}.part"
 
         # Create output directory if it doesn't exist
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
         msg(f"Downloading: {filename}")
-        msg(f"Destination: {output_path}")
+        msg(f"Temporary file: {temp_path}")
+        msg(f"Final destination: {output_path}")
 
         try:
-            # Download with progress indication
+            # Download to temporary .part file
             response = requests.get(download_url, stream=True, timeout=120)
             response.raise_for_status()
 
@@ -440,30 +442,34 @@ class RedHatAPI:
             block_size = 8192
             downloaded = 0
 
-            with open(output_path, 'wb') as f:
+            with open(temp_path, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=block_size):
                     if chunk:
                         f.write(chunk)
                         downloaded += len(chunk)
                         progress(downloaded, total_size)
 
-            # Verify checksum
+            # Verify checksum on temporary file
             msg("")  # New line after progress
             msg("Verifying checksum...")
 
-            calculated_checksum = self.calculate_sha256(str(output_path))
+            calculated_checksum = self.calculate_sha256(str(temp_path))
 
             if calculated_checksum != checksum:
-                # Checksum mismatch - delete the file
-                output_path.unlink()
+                # Checksum mismatch - delete the temporary file
+                temp_path.unlink()
                 raise RuntimeError(
                     f"Checksum mismatch!\n"
                     f"Expected: {checksum}\n"
                     f"Got:      {calculated_checksum}\n"
-                    f"File deleted for security."
+                    f"Temporary file deleted for security."
                 )
 
             msg("Checksum verified successfully!")
+
+            # Rename temporary file to final filename
+            temp_path.rename(output_path)
+            msg(f"File renamed to: {output_path}")
 
             return {
                 "status": "success",
@@ -475,4 +481,7 @@ class RedHatAPI:
             }
 
         except requests.RequestException as e:
+            # Clean up temporary file on download error
+            if temp_path.exists():
+                temp_path.unlink()
             raise RuntimeError(f"Download failed: {e}") from e
