@@ -41,6 +41,11 @@
             python3.pkgs.requests
           ];
         };
+
+        # NixOS integration tests
+        checks.integration = import ./tests/integration.nix {
+          inherit pkgs system;
+        };
       }
     );
 }
