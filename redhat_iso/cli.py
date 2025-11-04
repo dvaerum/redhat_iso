@@ -143,7 +143,10 @@ def format_download_output(result: dict, json_output: bool = False) -> None:
         print(json.dumps(result, indent=2))
     else:
         print()
-        print("Download complete!")
+        if result.get('status') == 'skipped':
+            print("Download skipped - file already exists!")
+        else:
+            print("Download complete!")
         print(f"  File: {result['filename']}")
         print(f"  Path: {result['path']}")
         print(f"  Size: {result['size']:,} bytes")
@@ -260,6 +263,11 @@ Getting Started:
         action='store_true',
         help='Treat the identifier as a filename instead of checksum'
     )
+    download_parser.add_argument(
+        '--force',
+        action='store_true',
+        help='Force re-download even if file already exists with correct checksum'
+    )
 
     args = parser.parse_args()
 
@@ -296,6 +304,7 @@ Getting Started:
                 identifier=args.identifier,
                 output_dir=args.output,
                 by_filename=args.by_filename,
+                force=args.force,
                 progress_callback=progress_cb,
                 message_callback=message_cb
             )

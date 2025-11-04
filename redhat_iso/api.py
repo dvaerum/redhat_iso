@@ -356,6 +356,7 @@ class RedHatAPI:
         return sha256_hash.hexdigest()
 
     def download_file(self, identifier: str, output_dir: str = ".", by_filename: bool = False,
+                     force: bool = False,
                      progress_callback: Optional[callable] = None,
                      message_callback: Optional[callable] = None) -> Dict:
         """
@@ -365,18 +366,20 @@ class RedHatAPI:
             identifier: Either a checksum or filename
             output_dir: Directory to save the downloaded file
             by_filename: If True, treat identifier as filename; otherwise as checksum
+            force: If True, re-download even if file exists with correct checksum
             progress_callback: Optional callback for download progress (downloaded: int, total: int) -> None
             message_callback: Optional callback for status messages (str) -> None
 
         Returns:
             Dict with download result:
             {
-                "status": "success" | "error",
+                "status": "success" | "skipped" | "error",
                 "filename": str,
                 "checksum": str,
                 "path": str,
                 "size": int,
                 "verified": bool,
+                "message": str (for skipped downloads),
                 "error": str (only if status=="error")
             }
 
@@ -428,6 +431,34 @@ class RedHatAPI:
 
         # Create output directory if it doesn't exist
         Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+        # Check if file already exists and verify its checksum
+        if output_path.exists() and not force:
+            msg(f"File already exists: {output_path}")
+            msg("Verifying existing file checksum...")
+
+            existing_checksum = self.calculate_sha256(str(output_path))
+
+            if existing_checksum == checksum:
+                msg("Checksum matches! Skipping download.")
+                msg("Use --force to re-download.")
+
+                file_size = output_path.stat().st_size
+
+                return {
+                    "status": "skipped",
+                    "filename": filename,
+                    "checksum": checksum,
+                    "path": str(output_path),
+                    "size": file_size,
+                    "verified": True,
+                    "message": "File already exists with correct checksum"
+                }
+            else:
+                msg(f"Checksum mismatch for existing file!")
+                msg(f"  Expected: {checksum}")
+                msg(f"  Got:      {existing_checksum}")
+                msg("Re-downloading file...")
 
         msg(f"Downloading: {filename}")
         msg(f"Temporary file: {temp_path}")
