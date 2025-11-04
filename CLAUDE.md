@@ -4,7 +4,59 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A Python CLI tool and library to download Red Hat ISO files using the Red Hat Customer Portal API. Authenticates via OAuth 2.0 using offline tokens, lists available ISOs, and downloads by checksum or filename.
+A Python CLI tool and library to download Red Hat ISO files using the Red Hat Customer Portal API. Includes NixOS module for declarative ISO downloads. Authenticates via OAuth 2.0 using offline tokens, lists available ISOs, and downloads by checksum or filename.
+
+**Key Features:**
+- CLI tool and Python library
+- NixOS overlay and module for system integration
+- Automatic version discovery (no hardcoded RHEL versions)
+- Download by checksum (immutable) or filename (latest)
+- SHA-256 verification of all downloads
+- JSON output for automation
+- Comprehensive NixOS integration tests
+
+## Project Structure
+
+```
+.
+├── redhat_iso/                  # Python package
+│   ├── __init__.py             # Public exports: RedHatAPI, __version__
+│   ├── __main__.py             # Module runner (python -m redhat_iso)
+│   ├── api.py                  # Core API logic (~520 lines)
+│   └── cli.py                  # CLI interface (~125 lines)
+│
+├── modules/                     # NixOS integration
+│   └── redhat-iso-downloader.nix  # NixOS module (~264 lines)
+│
+├── tests/                       # Testing infrastructure
+│   ├── integration.nix         # NixOS VM tests (10 subtests)
+│   └── README.md               # Test documentation
+│
+├── docs/                        # Generated documentation
+│   └── options.md              # Auto-generated module options
+│
+├── .github/workflows/           # CI/CD
+│   └── update-docs.yml         # Auto-documentation workflow
+│
+├── examples/                    # Usage examples
+│   └── USAGE_EXAMPLES.md
+│
+├── flake.nix                    # Nix flake (overlay + module)
+├── default.nix                  # Package definition
+├── shell.nix                    # Development shell
+├── generate-doc.nix            # Documentation generator
+├── setup.py                     # Python packaging
+├── requirements.txt             # Python dependencies
+│
+├── CLAUDE.md                    # Development guide (this file)
+├── README.md                    # User-facing quick start
+├── NIXOS_USAGE.md              # Complete NixOS guide
+├── LIBRARY_USAGE.md            # Python API documentation
+├── MODULE_STRUCTURE.md         # Package structure details
+├── FEATURES.md                 # Feature list
+├── JSON_OUTPUT.md              # JSON format specs
+└── NIX_STRUCTURE.md            # Nix packaging details
+```
 
 ## Commands
 
@@ -241,6 +293,7 @@ See JSON_OUTPUT.md for format details.
 
 ### Adding New Features
 
+**For CLI/API features:**
 1. Add method to `RedHatAPI` class in `api.py`
 2. If CLI command needed, add to `cli.py`:
    - Add subparser or argument
@@ -248,15 +301,74 @@ See JSON_OUTPUT.md for format details.
 3. If library-only, just export from `__init__.py`
 4. Update documentation (README.md, USAGE_EXAMPLES.md, LIBRARY_USAGE.md)
 
+**For NixOS module features:**
+1. Add option to `modules/redhat-iso-downloader.nix`:
+   - Define option in `options.services.redhat-iso-downloader`
+   - Use in `config` section (script generation or service config)
+2. Update `generate-doc.nix` if needed (usually automatic)
+3. Run `nix-build generate-doc.nix` to verify docs generate correctly
+4. Add test case to `tests/integration.nix`
+5. Run `nix flake check` to verify all tests pass
+6. Documentation auto-updates via GitHub Actions on push
+
+**Documentation files to update:**
+- `CLAUDE.md`: Architecture and commands (this file)
+- `README.md`: User-facing quick start
+- `NIXOS_USAGE.md`: Complete NixOS integration guide
+- `LIBRARY_USAGE.md`: Python library API examples
+- `USAGE_EXAMPLES.md`: CLI usage examples
+- `docs/options.md`: Auto-generated from `generate-doc.nix`
+
 ### Nix Packaging
 
-- **flake.nix**: Uses flake-utils, imports default.nix
+- **flake.nix**: Uses flake-utils, provides overlay and NixOS module
+  - `overlays.default`: Adds `redhat_iso` package
+  - `nixosModules.default`: Imports `modules/redhat-iso-downloader.nix`
+  - `packages.default`: CLI package from `default.nix`
+  - `checks.integration`: NixOS integration tests from `tests/integration.nix`
 - **default.nix**: Main package definition with `buildPythonApplication`
 - **shell.nix**: Development shell, imports default.nix
+- **generate-doc.nix**: Documentation generator using `nixosOptionsDoc`
 - Entry point: `redhat_iso.cli:main` via setuptools console_scripts
 - Dependencies: Python 3.7+, requests>=2.31.0
 
+### NixOS Module Structure
+
+**modules/redhat-iso-downloader.nix** (~264 lines)
+
+The NixOS module enables declarative ISO downloads:
+
+**Key Components:**
+1. **Options Definition** (lines 90-191):
+   - `enable`: Toggle service
+   - `tokenFile`: Path to API token (supports secrets managers)
+   - `outputDir`: Download directory
+   - `downloads`: List of submodules with `checksum` and `filename` fields
+   - `runOnBoot`: Control automatic execution
+
+2. **Download Script Generation** (lines 8-87):
+   - `downloadIsoScript`: Generates shell script per download
+   - Supports 3 modes: checksum-only, filename-only, both (with verification)
+   - `downloadAllScript`: Master script that orchestrates all downloads
+   - Validates token file exists and creates output directory
+
+3. **Configuration** (lines 193-262):
+   - **Assertions**: Validates downloads list and each entry has checksum or filename
+   - **Package Installation**: Adds `pkgs.redhat_iso` to system packages
+   - **Systemd Service**: oneshot service with network dependencies
+   - **Security Hardening**: PrivateTmp, ProtectSystem=strict, NoNewPrivileges
+   - **Tmpfiles Rules**: Creates output directory with 0755 permissions
+
+**Module Design Principles:**
+- Declarative: All config in NixOS configuration.nix
+- Flexible: Supports immutable (checksum) or dynamic (filename) downloads
+- Secure: Integrates with agenix/sops-nix for token management
+- Idempotent: Safe to run multiple times (redhat_iso handles deduplication)
+- Validated: Build-time assertions catch configuration errors
+
 ## Testing
+
+### CLI and Package Testing
 
 ```bash
 # Build and test CLI
@@ -272,6 +384,95 @@ nix-shell shell.nix --run "python example_library_usage.py"
 
 # Test with custom token file
 ./result/bin/redhat_iso --token-file /path/to/token.txt list
+```
+
+### NixOS Integration Tests
+
+The project includes comprehensive NixOS integration tests using NixOS's VM testing framework:
+
+```bash
+# Run all tests (includes integration tests)
+nix flake check
+
+# Run integration tests specifically
+nix build .#checks.x86_64-linux.integration -L
+
+# Traditional nix-build
+nix-build tests/integration.nix
+
+# Run with detailed output and keep failed builds
+nix build .#checks.x86_64-linux.integration -L --keep-failed
+```
+
+**Test Architecture:**
+- Located in `tests/integration.nix`
+- Uses mock `redhat_iso` (no network/token required)
+- Spins up QEMU VM with the NixOS module
+- Tests: 10 subtests covering module config, systemd, security, and downloads
+- Performance: ~20 seconds (cached), 2-5 minutes (first run)
+- See `tests/README.md` for comprehensive test documentation
+
+**What's Tested:**
+- Package installation and CLI functionality
+- Systemd service configuration (oneshot, network dependencies)
+- Security hardening (PrivateTmp, ProtectSystem, NoNewPrivileges)
+- File system permissions (output dir, token file)
+- Download functionality with mock data
+- Service idempotency (safe to run multiple times)
+- Configuration validation and assertions
+
+### Documentation Generation
+
+```bash
+# Generate module options documentation
+nix-build generate-doc.nix
+
+# View generated docs
+cat result
+
+# Documentation is auto-generated to docs/options.md by GitHub Actions
+```
+
+**How it works:**
+- `generate-doc.nix` uses `nixosOptionsDoc` to extract options programmatically
+- Provides minimal NixOS infrastructure for module evaluation
+- Filters to only document `services.redhat-iso-downloader` options
+- GitHub Actions workflow (`.github/workflows/update-docs.yml`) runs on every push
+- Auto-commits updated docs to `docs/options.md` if changes detected
+
+## CI/CD
+
+### GitHub Actions Workflows
+
+**.github/workflows/update-docs.yml** - Auto-Documentation
+
+Runs on every push to any branch:
+
+1. **Setup**: Checks out code, configures git user, installs Nix
+2. **Build**: Runs `nix-build generate-doc.nix` to generate docs
+3. **Update**: Copies result to `docs/options.md`
+4. **Commit**: Commits and pushes if changes detected
+
+**Requirements:**
+- SSH deploy key configured as `SSH_PRIVATE_KEY` secret
+- Deploy key must have write access
+- See workflow comments for setup instructions
+
+**Setup SSH Deploy Key:**
+```bash
+# 1. Generate key pair
+ssh-keygen -t ed25519 -N "" -f /tmp/github
+
+# 2. Add private key as Actions secret:
+#    Settings → Secrets → Actions → New secret
+#    Name: SSH_PRIVATE_KEY
+#    Value: Contents of /tmp/github
+
+# 3. Add public key as Deploy Key:
+#    Settings → Deploy keys → Add deploy key
+#    Title: Github Action Key
+#    Key: Contents of /tmp/github.pub
+#    ☑ Allow write access
 ```
 
 ## Security Considerations
