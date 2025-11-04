@@ -18,7 +18,7 @@ If you're using a flake-based NixOS configuration, add this flake as an input:
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    redhat_iso.url = "github:YOUR_USERNAME/redhat_iso";  # Update with your repo
+    redhat_iso.url = "github:dvaerum/redhat_iso";
   };
 
   outputs = { self, nixpkgs, redhat_iso, ... }: {
@@ -60,7 +60,7 @@ If you're using a traditional (non-flake) NixOS configuration, you can add the o
 
 let
   redhat_iso_overlay = import (builtins.fetchGit {
-    url = "https://github.com/YOUR_USERNAME/redhat_iso";  # Update with your repo
+    url = "https://github.com/dvaerum/redhat_iso";
     ref = "main";
   });
 in
@@ -167,7 +167,7 @@ Add the module to your flake-based configuration:
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    redhat_iso.url = "github:YOUR_USERNAME/redhat_iso";
+    redhat_iso.url = "github:dvaerum/redhat_iso";
   };
 
   outputs = { nixpkgs, redhat_iso, ... }: {

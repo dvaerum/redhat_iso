@@ -233,7 +233,7 @@ in {
     # Create systemd service
     systemd.services.redhat-iso-downloader = {
       description = "Red Hat ISO Downloader";
-      documentation = [ "https://github.com/YOUR_USERNAME/redhat_iso" ];
+      documentation = [ "https://github.com/dvaerum/redhat_iso" ];
 
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
