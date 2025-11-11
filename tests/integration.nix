@@ -12,6 +12,7 @@ let
     CHECKSUM_OR_FILENAME=""
     OUTPUT_DIR="."
     BY_FILENAME=false
+    FORCE=false
 
     while [[ $# -gt 0 ]]; do
       case $1 in
@@ -27,6 +28,10 @@ let
           BY_FILENAME=true
           shift
           ;;
+        --force)
+          FORCE=true
+          shift
+          ;;
         download)
           shift
           CHECKSUM_OR_FILENAME="$1"
@@ -34,7 +39,7 @@ let
           ;;
         --help)
           echo "Red Hat ISO Download Tool"
-          echo "Usage: redhat_iso [--token-file FILE] download CHECKSUM [--output DIR]"
+          echo "Usage: redhat_iso [--token-file FILE] download CHECKSUM [--output DIR] [--by-filename] [--force]"
           exit 0
           ;;
         *)
@@ -49,8 +54,27 @@ let
       exit 1
     fi
 
+    # Determine filename
+    if [ "$BY_FILENAME" = true ]; then
+      FILENAME="$CHECKSUM_OR_FILENAME"
+
+      # NEW BEHAVIOR: Check if file exists when using --by-filename (unless --force)
+      if [ "$FORCE" = false ] && [ -f "$OUTPUT_DIR/$FILENAME" ]; then
+        echo "File already exists: $OUTPUT_DIR/$FILENAME"
+        echo "Use --force to re-download."
+        echo ""
+        echo "Download skipped - file already exists!"
+        echo "  File: $FILENAME"
+        echo "  Path: $OUTPUT_DIR/$FILENAME"
+        echo "  Size: $(stat -c%s "$OUTPUT_DIR/$FILENAME") bytes"
+        exit 0
+      fi
+    else
+      # Download by checksum - use generic filename
+      FILENAME="test-rhel.iso"
+    fi
+
     # Create a simple test ISO file
-    FILENAME="test-rhel.iso"
     echo "Mock ISO content" > "$OUTPUT_DIR/$FILENAME"
     echo "Downloaded: $FILENAME"
     exit 0
@@ -83,6 +107,10 @@ in pkgs.testers.nixosTest {
         {
           # Test download by checksum
           checksum = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";  # sha256 of empty file
+        }
+        {
+          # Test download by filename
+          filename = "test-rhel-by-filename.iso";
         }
       ];
     };
@@ -181,6 +209,39 @@ in pkgs.testers.nixosTest {
         file_count_after = machine.succeed("ls -1 /var/lib/test-isos/ | wc -l").strip()
         assert file_count_before == file_count_after, \
                "File count changed after re-run: " + file_count_before + " -> " + file_count_after
+
+    # Test 11: Verify --by-filename download created file
+    with subtest("by-filename download created file"):
+        machine.succeed("test -f /var/lib/test-isos/test-rhel-by-filename.iso")
+        result = machine.succeed("cat /var/lib/test-isos/test-rhel-by-filename.iso")
+        assert "Mock ISO content" in result, "Downloaded file has incorrect content"
+
+    # Test 12: Test --by-filename skips existing files
+    with subtest("by-filename skips existing files"):
+        # Try to download the same file again directly
+        result = machine.succeed(
+            "redhat_iso --token-file /etc/redhat-api-token.txt download test-rhel-by-filename.iso --by-filename --output /var/lib/test-isos"
+        )
+        assert "File already exists" in result, "Should detect existing file"
+        assert "Download skipped" in result, "Should skip download"
+
+    # Test 13: Test --force with --by-filename re-downloads
+    with subtest("by-filename with --force re-downloads"):
+        # Modify the existing file to verify it gets replaced
+        machine.succeed("echo 'Modified content' > /var/lib/test-isos/test-rhel-by-filename.iso")
+        result = machine.succeed("cat /var/lib/test-isos/test-rhel-by-filename.iso")
+        assert "Modified content" in result, "File wasn't modified"
+
+        # Download with --force should replace it
+        result = machine.succeed(
+            "redhat_iso --token-file /etc/redhat-api-token.txt download test-rhel-by-filename.iso --by-filename --force --output /var/lib/test-isos"
+        )
+        assert "Downloaded: test-rhel-by-filename.iso" in result, "Should download with --force"
+
+        # Verify file was replaced with original content
+        result = machine.succeed("cat /var/lib/test-isos/test-rhel-by-filename.iso")
+        assert "Mock ISO content" in result, "File should be restored to original content"
+        assert "Modified content" not in result, "Modified content should be gone"
 
     print("All tests passed!")
   '';

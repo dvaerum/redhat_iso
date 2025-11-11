@@ -17,7 +17,7 @@ nix-build tests/integration.nix
 
 ## Test Suite
 
-- **`integration.nix`** - Complete NixOS VM-based integration tests (10 subtests)
+- **`integration.nix`** - Complete NixOS VM-based integration tests (13 subtests)
   - Tests module configuration, systemd setup, security hardening, and downloads
   - Uses mock `redhat_iso` - no network or token required
   - Performance: ~20 seconds (cached), 2-5 minutes (first run)
@@ -39,6 +39,8 @@ See: **[docs/development/testing.md](../docs/development/testing.md)**
 ✅ Systemd service configuration (oneshot, network dependencies)
 ✅ Security hardening (PrivateTmp, ProtectSystem, NoNewPrivileges)
 ✅ File system permissions (output dir, token file)
-✅ Download functionality with mock data
+✅ Download functionality with mock data (by checksum and by filename)
 ✅ Service idempotency (safe to run multiple times)
+✅ `--by-filename` skips existing files (no re-download)
+✅ `--by-filename --force` re-downloads existing files
 ✅ Configuration validation and assertions

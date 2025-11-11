@@ -150,8 +150,12 @@ def format_download_output(result: dict, json_output: bool = False) -> None:
         print(f"  File: {result['filename']}")
         print(f"  Path: {result['path']}")
         print(f"  Size: {result['size']:,} bytes")
-        print(f"  Checksum: {result['checksum']}")
-        print(f"  Verified: {result['verified']}")
+
+        # Only show checksum and verification if available
+        checksum = result.get('checksum')
+        if checksum:
+            print(f"  Checksum: {checksum}")
+            print(f"  Verified: {result['verified']}")
 
 
 def create_progress_callback(json_output: bool):

@@ -111,18 +111,27 @@ redhat_iso list --content-set rhel-9-for-x86_64-baseos-isos
 ### Download ISOs
 
 ```bash
-# By checksum (precise)
+# By checksum (precise, with checksum verification of existing files)
 redhat_iso download <SHA256_CHECKSUM>
 
-# By filename (automatic search)
+# By filename (automatic search, skips if filename exists)
 redhat_iso download rhel-9.6-x86_64-dvd.iso --by-filename
 
 # Custom output directory
 redhat_iso download <CHECKSUM> --output ~/Downloads
 
+# Force re-download (skip all checks of existing files)
+redhat_iso download <CHECKSUM> --force
+redhat_iso download rhel-9.6-x86_64-dvd.iso --by-filename --force
+
 # JSON output
 redhat_iso --json download <CHECKSUM>
 ```
+
+**Note on existing file behavior:**
+- **By checksum**: Verifies existing file's SHA-256 before skipping (safe but slower)
+- **By filename**: Skips immediately if filename exists (fast, no verification)
+- **With `--force`**: Always re-downloads, overwriting existing files
 
 ### Library Usage
 
@@ -138,9 +147,14 @@ images = api.list_rhel_images("9.6", "x86_64")
 # Discover available versions
 versions = api.discover_rhel_versions("x86_64")
 
-# Download
-api.download_file("checksum_or_filename", output_dir="./downloads")
+# Download by checksum
+api.download_file("checksum", output_dir="./downloads")
+
+# Download by filename with force flag
+api.download_file("filename.iso", output_dir="./downloads", by_filename=True, force=True)
 ```
+
+See `examples/example_library_usage.py` for more comprehensive examples.
 
 ## Architecture
 
@@ -151,10 +165,12 @@ redhat_iso/
 ├── __init__.py      # Package exports: RedHatAPI, __version__
 ├── __main__.py      # Module runner: python -m redhat_iso
 ├── api.py           # Core API client (~520 lines)
-└── cli.py           # CLI interface (~125 lines)
+└── cli.py           # CLI interface (~330 lines)
+
+examples/
+└── example_library_usage.py  # Library usage examples
 
 setup.py             # Package configuration
-example_library_usage.py  # Library usage examples
 ```
 
 ### Separation of Concerns
@@ -198,7 +214,9 @@ example_library_usage.py  # Library usage examples
 **Search & Download:**
 - `find_image_by_filename(filename)`: Search across versions for filename (with progress prints)
 - `get_download_info(checksum)`: Get download URL for checksum
-- `download_file(identifier, ...)`: Download by checksum or filename with progress and automatic SHA-256 verification
+- `download_file(identifier, output_dir=".", by_filename=False, force=False, ...)`: Download by checksum or filename with progress and automatic SHA-256 verification
+  - Skips download if file exists with correct checksum (unless `force=True`)
+  - Returns status dict with `status: "skipped"` or `status: "success"`
 - `calculate_sha256(file_path)`: Calculate SHA-256 checksum of a file (static method)
 
 ### Authentication Flow
@@ -230,17 +248,24 @@ This ensures the tool always shows latest RHEL releases without code updates.
 
 When `--by-filename` flag is used:
 
-1. Call `discover_rhel_versions()` for x86_64 and aarch64
-2. Search x86_64 first (most common), then aarch64
-3. For each version (newest first):
-   - Call `list_rhel_images(version, arch)`
-   - Check if any image has matching filename
-   - Print progress: "Searching RHEL X.Y (arch)... ✓ Found!" or " -"
-   - Early exit on first match (searches newest first)
-4. If multiple matches, select most recent by `datePublished`
-5. Extract checksum and download via `get_download_info()`
-6. After download: Calculate SHA-256 of file and verify against expected checksum
-7. If mismatch: Delete file and exit with error; If match: Report success
+1. **Check local filesystem first**: If file with that filename exists (and `--force` not used):
+   - Skip immediately without any API calls or checksum verification
+   - Return `status: "skipped"` with `verified: False`
+   - Fast exit - no network requests needed
+2. If file doesn't exist or `--force` used, search for filename in API:
+   - Call `discover_rhel_versions()` for x86_64 and aarch64
+   - Search x86_64 first (most common), then aarch64
+   - For each version (newest first):
+     - Call `list_rhel_images(version, arch)`
+     - Check if any image has matching filename
+     - Print progress: "Searching RHEL X.Y (arch)... ✓ Found!" or " -"
+     - Early exit on first match (searches newest first)
+3. If multiple matches, select most recent by `datePublished`
+4. Extract checksum and download via `get_download_info()`
+5. After download: Calculate SHA-256 of file and verify against expected checksum
+6. If mismatch: Delete file and exit with error; If match: Report success
+
+**Key difference**: When downloading by checksum directly (not `--by-filename`), existing files are verified by checksum before skipping. With `--by-filename`, files are skipped purely by filename match (no checksum calculation).
 
 ### JSON Output
 
@@ -251,6 +276,14 @@ When `--json` flag is used:
 - Used for automation and scripting
 
 See [docs/usage/json-output.md](docs/usage/json-output.md) for format details.
+
+### Progress Bar Behavior
+
+The CLI intelligently controls progress output:
+- **TTY Detection**: Progress bar only displays when stdout is a TTY (terminal)
+- **Pipe/Redirect Safe**: No progress output when redirecting to files or pipes
+- **JSON Mode**: All progress suppressed in `--json` mode
+- Prevents garbled output in automation scenarios
 
 ## API Endpoints
 
@@ -416,7 +449,7 @@ nix build .#checks.x86_64-linux.integration -L --keep-failed
 - Located in `tests/integration.nix`
 - Uses mock `redhat_iso` (no network/token required)
 - Spins up QEMU VM with the NixOS module
-- Tests: 10 subtests covering module config, systemd, security, and downloads
+- Tests: 13 subtests covering module config, systemd, security, and downloads
 - Performance: ~20 seconds (cached), 2-5 minutes (first run)
 - See `tests/README.md` for comprehensive test documentation
 
@@ -425,8 +458,10 @@ nix build .#checks.x86_64-linux.integration -L --keep-failed
 - Systemd service configuration (oneshot, network dependencies)
 - Security hardening (PrivateTmp, ProtectSystem, NoNewPrivileges)
 - File system permissions (output dir, token file)
-- Download functionality with mock data
+- Download functionality with mock data (by checksum and by filename)
 - Service idempotency (safe to run multiple times)
+- `--by-filename` skips existing files (no re-download)
+- `--by-filename --force` re-downloads existing files
 - Configuration validation and assertions
 
 ### Documentation Generation

@@ -396,6 +396,25 @@ class RedHatAPI:
             if progress_callback:
                 progress_callback(downloaded, total)
 
+        # Check if file exists by filename (before doing any API searches)
+        if by_filename and not force:
+            potential_path = Path(output_dir) / identifier
+            if potential_path.exists():
+                msg(f"File already exists: {potential_path}")
+                msg("Use --force to re-download.")
+
+                file_size = potential_path.stat().st_size
+
+                return {
+                    "status": "skipped",
+                    "filename": identifier,
+                    "checksum": None,  # Unknown when skipping by filename
+                    "path": str(potential_path),
+                    "size": file_size,
+                    "verified": False,  # Not verified when skipping by filename
+                    "message": "File already exists (filename match)"
+                }
+
         # Resolve filename to checksum if needed
         if by_filename:
             image = self.find_image_by_filename(identifier, message_callback=message_callback)
