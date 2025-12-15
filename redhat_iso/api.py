@@ -49,7 +49,7 @@ class RedHatAPI:
     def list_rhel_images(self, version: str, arch: str) -> List[Dict]:
         """
         List RHEL images for a specific version and architecture.
-        Returns empty list if version/arch not found (404).
+        Returns empty list if version/arch not found (404) or server error (500).
         Raises exception for other errors.
         """
         access_token = self.get_access_token()
@@ -62,8 +62,8 @@ class RedHatAPI:
             data = response.json()
             return data.get('body', [])
         except requests.RequestException as e:
-            # Return empty list for 404 (not found)
-            if hasattr(e, 'response') and e.response is not None and e.response.status_code == 404:
+            # Return empty list for 404 (not found) or 500 (server error - often returned for non-existent versions)
+            if hasattr(e, 'response') and e.response is not None and e.response.status_code in (404, 500):
                 return []
             # Raise exception for other errors
             raise RuntimeError(f"Error listing RHEL images: {e}") from e
@@ -71,7 +71,7 @@ class RedHatAPI:
     def list_images_by_content_set(self, content_set: str) -> List[Dict]:
         """
         List images in a specific content set.
-        Returns empty list if content set not found (404).
+        Returns empty list if content set not found (404) or server error (500).
         Raises exception for other errors.
         """
         access_token = self.get_access_token()
@@ -84,8 +84,8 @@ class RedHatAPI:
             data = response.json()
             return data.get('body', [])
         except requests.RequestException as e:
-            # Return empty list for 404 (not found)
-            if hasattr(e, 'response') and e.response is not None and e.response.status_code == 404:
+            # Return empty list for 404 (not found) or 500 (server error)
+            if hasattr(e, 'response') and e.response is not None and e.response.status_code in (404, 500):
                 return []
             # Raise exception for other errors
             raise RuntimeError(f"Error listing images for content set: {e}") from e
